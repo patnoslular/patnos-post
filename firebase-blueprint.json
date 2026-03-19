@@ -1,0 +1,27 @@
+{
+  "entities": {
+    "news": {
+      "title": "News Item",
+      "description": "A news article published on the site",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "description": "Headline of the news" },
+        "excerpt": { "type": "string", "description": "Short summary" },
+        "content": { "type": "string", "description": "Full article content" },
+        "category": { "type": "string", "description": "News category" },
+        "imageUrl": { "type": "string", "description": "URL to the cover image" },
+        "author": { "type": "string", "description": "Author name" },
+        "date": { "type": "string", "description": "Publication date" },
+        "readTime": { "type": "string", "description": "Estimated read time" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" }
+      },
+      "required": ["title", "excerpt", "content", "category", "imageUrl", "author", "date", "readTime", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/news/{newsId}": {
+      "schema": "news",
+      "description": "Collection of news articles"
+    }
+  }
+}
