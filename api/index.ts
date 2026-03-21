@@ -76,7 +76,6 @@ app.get('/robots.txt', (req, res) => {
 // Meta Tag Injection Logic
 const injectMetaTags = async (html: string, req: express.Request) => {
   const path = req.path;
-  // Improved ID extraction: handle /news/ID or /news/ID/ and remove any trailing junk
   const parts = path.split('/').filter(Boolean);
   let newsId = (parts[0] === 'news' && parts[1]) ? parts[1].split(/[?#]/)[0] : null;
   
@@ -117,7 +116,6 @@ const injectMetaTags = async (html: string, req: express.Request) => {
     }
   }
 
-  // Basic escaping for HTML attributes
   const escape = (str: string) => str.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
   return html
@@ -132,10 +130,7 @@ app.use('/assets', express.static(path.join(distPath, 'assets')));
 
 // Handle requests
 app.get('*', async (req, res, next) => {
-  // Skip API and Robots
   if (req.path.startsWith('/api/') || req.path === '/robots.txt') return next();
-  
-  // Skip assets in production
   if (isProd && req.path.startsWith('/assets/')) return next();
 
   try {
@@ -145,7 +140,6 @@ app.get('*', async (req, res, next) => {
       template = fs.readFileSync(path.resolve(rootDir, 'index.html'), 'utf-8');
       template = await v.transformIndexHtml(req.originalUrl, template);
     } else {
-      // Use absolute paths for Vercel
       const indexPath = path.resolve(rootDir, 'dist', 'index.html');
       const fallbackPath = path.resolve(rootDir, 'index.html');
       let activePath = fs.existsSync(indexPath) ? indexPath : fallbackPath;
@@ -174,10 +168,8 @@ app.get('*', async (req, res, next) => {
   }
 });
 
-// Export the app for Vercel
 export default app;
 
-// Local development listening
 if (!process.env.VERCEL && process.env.NODE_ENV !== 'test') {
   const port = 3000;
   app.listen(port, '0.0.0.0', () => {
