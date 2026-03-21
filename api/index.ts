@@ -76,12 +76,16 @@ app.get('/robots.txt', (req, res) => {
 // Meta Tag Injection Logic
 const injectMetaTags = async (html: string, req: express.Request) => {
   const path = req.path;
+  const lang = (req.query.lang as string) || 'tr'; // Get language from query param, default to 'tr'
+  
+  // Improved ID extraction: handle /news/ID or /news/ID/ and remove any trailing junk
   const parts = path.split('/').filter(Boolean);
   let newsId = (parts[0] === 'news' && parts[1]) ? parts[1].split(/[?#]/)[0] : null;
   
   let title = "The Patnos Post | Gerçeğin Peşinde, Geleceğin İzinde";
   let description = "Patnos ve çevresinden en güncel haberler, yaşam ve kültür içerikleri.";
   let image = "https://static.wixstatic.com/media/7e2174_e230755889444a418254ba8ec11e24f7~mv2.png";
+  let locale = lang === 'ku' ? 'ku_TR' : 'tr_TR';
   
   const host = req.headers.host || 'patnos-post.vercel.app';
   const appUrl = `https://${host}`;
@@ -101,8 +105,12 @@ const injectMetaTags = async (html: string, req: express.Request) => {
           .single();
 
         if (newsItem && !error) {
-          title = `${newsItem.title?.tr || newsItem.title || 'Haber'} | The Patnos Post`;
-          description = newsItem.excerpt?.tr || newsItem.excerpt || (newsItem.content?.tr || newsItem.content || '').substring(0, 160) || description;
+          // Select correct language fields
+          const newsTitle = newsItem.title?.[lang] || newsItem.title?.tr || newsItem.title || 'Haber';
+          const newsExcerpt = newsItem.excerpt?.[lang] || newsItem.excerpt?.tr || (newsItem.content?.[lang] || newsItem.content?.tr || '').substring(0, 160) || description;
+          
+          title = `${newsTitle} | The Patnos Post`;
+          description = newsExcerpt;
           
           if (newsItem.imageUrl) {
             image = newsItem.imageUrl.startsWith('http') 
@@ -116,13 +124,15 @@ const injectMetaTags = async (html: string, req: express.Request) => {
     }
   }
 
+  // Basic escaping for HTML attributes
   const escape = (str: string) => str.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
   return html
     .replace(/__OG_TITLE__/g, escape(title))
     .replace(/__OG_DESCRIPTION__/g, escape(description))
     .replace(/__OG_IMAGE__/g, escape(image))
-    .replace(/__OG_URL__/g, escape(fullUrl));
+    .replace(/__OG_URL__/g, escape(fullUrl))
+    .replace(/__OG_LOCALE__/g, locale);
 };
 
 // Static assets for production
@@ -130,7 +140,10 @@ app.use('/assets', express.static(path.join(distPath, 'assets')));
 
 // Handle requests
 app.get('*', async (req, res, next) => {
+  // Skip API and Robots
   if (req.path.startsWith('/api/') || req.path === '/robots.txt') return next();
+  
+  // Skip assets in production
   if (isProd && req.path.startsWith('/assets/')) return next();
 
   try {
@@ -140,6 +153,7 @@ app.get('*', async (req, res, next) => {
       template = fs.readFileSync(path.resolve(rootDir, 'index.html'), 'utf-8');
       template = await v.transformIndexHtml(req.originalUrl, template);
     } else {
+      // Use absolute paths for Vercel
       const indexPath = path.resolve(rootDir, 'dist', 'index.html');
       const fallbackPath = path.resolve(rootDir, 'index.html');
       let activePath = fs.existsSync(indexPath) ? indexPath : fallbackPath;
@@ -168,8 +182,10 @@ app.get('*', async (req, res, next) => {
   }
 });
 
+// Export the app for Vercel
 export default app;
 
+// Local development listening
 if (!process.env.VERCEL && process.env.NODE_ENV !== 'test') {
   const port = 3000;
   app.listen(port, '0.0.0.0', () => {
