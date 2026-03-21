@@ -20,6 +20,7 @@ export const NewsDetail = ({ item, lang, onClose }: NewsDetailProps) => {
   const category = CATEGORIES.find(c => c.id === item.category)?.[lang] || item.category;
 
   const getShareUrl = () => {
+    // Paylaşım linkinin sonuna dili mutlaka ekliyoruz
     const url = new URL(window.location.origin + `/news/${item.id}`);
     url.searchParams.set('lang', lang);
     return url.toString();
