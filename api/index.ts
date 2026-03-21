@@ -66,7 +66,10 @@ app.get('/robots.txt', (req, res) => {
 
 const injectMetaTags = async (html: string, req: express.Request) => {
   const path = req.path;
-  const lang = (req.query.lang as string) || 'tr';
+  // URL'den dili daha garanti bir yöntemle çekiyoruz
+  const urlObj = new URL(req.url, `http://${req.headers.host}`);
+  const lang = urlObj.searchParams.get('lang') || 'tr';
+  
   const parts = path.split('/').filter(Boolean);
   let newsId = (parts[0] === 'news' && parts[1]) ? parts[1].split(/[?#]/)[0] : null;
   
@@ -86,11 +89,15 @@ const injectMetaTags = async (html: string, req: express.Request) => {
       if (supabaseKey && supabaseUrl) {
         const supabase = createClient(supabaseUrl, supabaseKey);
         const { data: newsItem, error } = await supabase.from('news').select('*').eq('id', newsId).single();
+        
         if (newsItem && !error) {
-          const newsTitle = newsItem.title?.[lang] || newsItem.title?.tr || newsItem.title || 'Haber';
-          const newsExcerpt = newsItem.excerpt?.[lang] || newsItem.excerpt?.tr || (newsItem.content?.[lang] || newsItem.content?.tr || '').substring(0, 160) || description;
+          // AKILLI DİL SEÇİMİ: Eğer lang=ku ise Kürtçe, yoksa Türkçe, o da yoksa olanı al.
+          const newsTitle = newsItem.title?.[lang] || newsItem.title?.ku || newsItem.title?.tr || newsItem.title || 'Haber';
+          const newsExcerpt = newsItem.excerpt?.[lang] || newsItem.excerpt?.ku || newsItem.excerpt?.tr || (newsItem.content?.[lang] || newsItem.content?.ku || newsItem.content?.tr || '').substring(0, 160) || description;
+          
           title = `${newsTitle} | The Patnos Post`;
           description = newsExcerpt;
+          
           if (newsItem.imageUrl) {
             image = newsItem.imageUrl.startsWith('http') ? newsItem.imageUrl : `${appUrl}${newsItem.imageUrl.startsWith('/') ? '' : '/'}${newsItem.imageUrl}`;
           }
