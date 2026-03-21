@@ -20,21 +20,38 @@ export const NewsDetail = ({ item, lang, onClose }: NewsDetailProps) => {
   const category = CATEGORIES.find(c => c.id === item.category)?.[lang] || item.category;
 
   const getShareUrl = () => {
-    // Paylaşım linkinin sonuna dili mutlaka ekliyoruz
-    const url = new URL(window.location.origin + `/news/${item.id}`);
-    url.searchParams.set('lang', lang);
-    return url.toString();
+    const origin = window.location.origin;
+    return `${origin}/news/${item.id}?lang=${lang}`;
   };
 
   const shareUrl = getShareUrl();
   const shareTitle = displayTitle;
 
   const handleFacebookShare = () => {
-    window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`, '_blank');
+    const width = 600;
+    const height = 700;
+    const left = (window.innerWidth - width) / 2;
+    const top = (window.innerHeight - height) / 2;
+    
+    // Bu yöntem işlemi her zaman mevcut tarayıcı içinde tutar
+    window.open(
+      `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`, 
+      'facebook-share-dialog', 
+      `width=${width},height=${height},top=${top},left=${left},toolbar=no,location=no,status=no,menubar=no,scrollbars=yes,resizable=yes`
+    );
   };
 
   const handleTwitterShare = () => {
-    window.open(`https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(shareTitle)}`, '_blank');
+    const width = 600;
+    const height = 450;
+    const left = (window.innerWidth - width) / 2;
+    const top = (window.innerHeight - height) / 2;
+
+    window.open(
+      `https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(shareTitle)}`, 
+      'twitter-share-dialog', 
+      `width=${width},height=${height},top=${top},left=${left},toolbar=no,location=no,status=no,menubar=no,scrollbars=yes,resizable=yes`
+    );
   };
 
   const handleCopyLink = () => {
@@ -43,7 +60,10 @@ export const NewsDetail = ({ item, lang, onClose }: NewsDetailProps) => {
   };
 
   const handleWebShare = async () => {
-    if (navigator.share) {
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    
+    if (isMobile && navigator.share) {
+      // Mobilde telefonun kendi paylaşım menüsünü açar
       try {
         await navigator.share({
           title: shareTitle,
@@ -54,7 +74,9 @@ export const NewsDetail = ({ item, lang, onClose }: NewsDetailProps) => {
         console.error('Error sharing:', error);
       }
     } else {
-      handleCopyLink();
+      // Masaüstünde Windows menüsünü açmak yerine doğrudan Facebook paylaşımını başlatır
+      // Bu sayede Edge'e geçiş yapmaz, Chrome'da kalır.
+      handleFacebookShare();
     }
   };
 
