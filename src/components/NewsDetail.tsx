@@ -8,7 +8,7 @@ interface NewsDetailProps {
   item: NewsItem;
   lang: Language;
   onClose: () => void;
-}
+} 
 
 export const NewsDetail = ({ item, lang, onClose }: NewsDetailProps) => {
   const sourceLang = lang === 'tr' ? 'ku' : 'tr';
