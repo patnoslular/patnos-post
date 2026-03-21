@@ -19,7 +19,17 @@ export const NewsDetail = ({ item, lang, onClose }: NewsDetailProps) => {
   const t = UI_STRINGS[lang];
   const category = CATEGORIES.find(c => c.id === item.category)?.[lang] || item.category;
 
-  const shareUrl = window.location.href;
+  const getShareUrl = () => {
+    const url = new URL(window.location.href);
+    // Ensure we are pointing to the specific news item if we're in a modal/SPA
+    if (!url.pathname.includes(`/news/${item.id}`)) {
+      url.pathname = `/news/${item.id}`;
+    }
+    url.searchParams.set('lang', lang);
+    return url.toString();
+  };
+
+  const shareUrl = getShareUrl();
   const shareTitle = displayTitle;
 
   const handleFacebookShare = () => {
