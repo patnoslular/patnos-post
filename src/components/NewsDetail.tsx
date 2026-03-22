@@ -8,7 +8,7 @@ interface NewsDetailProps {
   item: NewsItem;
   lang: Language;
   onClose: () => void;
-} 
+}
 
 export const NewsDetail = ({ item, lang, onClose }: NewsDetailProps) => {
   const sourceLang = lang === 'tr' ? 'ku' : 'tr';
@@ -33,7 +33,6 @@ export const NewsDetail = ({ item, lang, onClose }: NewsDetailProps) => {
     const left = (window.innerWidth - width) / 2;
     const top = (window.innerHeight - height) / 2;
     
-    // Bu yöntem işlemi her zaman mevcut tarayıcı içinde tutar
     window.open(
       `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`, 
       'facebook-share-dialog', 
@@ -63,7 +62,6 @@ export const NewsDetail = ({ item, lang, onClose }: NewsDetailProps) => {
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
     
     if (isMobile && navigator.share) {
-      // Mobilde telefonun kendi paylaşım menüsünü açar
       try {
         await navigator.share({
           title: shareTitle,
@@ -74,7 +72,7 @@ export const NewsDetail = ({ item, lang, onClose }: NewsDetailProps) => {
         console.error('Error sharing:', error);
       }
     } else {
-      // Masaüstünde Windows menüsünü açmak yerine doğrudan Facebook paylaşımını başlatır
+      // MASAÜSTÜNDE: Windows menüsünü açmak yerine doğrudan Facebook penceresini açar.
       // Bu sayede Edge'e geçiş yapmaz, Chrome'da kalır.
       handleFacebookShare();
     }
