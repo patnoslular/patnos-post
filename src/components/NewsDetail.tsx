@@ -10,9 +10,14 @@ interface NewsDetailProps {
 
 export const NewsDetail = ({ item, lang, onClose }: NewsDetailProps) => {
   const sourceLang = lang === 'tr' ? 'ku' : 'tr';
-  const displayTitle = item.title ? (item.title[lang] || item.title[sourceLang] || '') : '';
-  const displayExcerpt = item.excerpt ? (item.excerpt[lang] || item.excerpt[sourceLang] || '') : '';
-  const displayContent = item.content ? (item.content[lang] || item.content[sourceLang] || '') : '';
+  
+  const title = item.title || { tr: '', ku: '' };
+  const excerpt = item.excerpt || { tr: '', ku: '' };
+  const content = item.content || { tr: '', ku: '' };
+
+  const displayTitle = title[lang] || title[sourceLang] || '';
+  const displayExcerpt = excerpt[lang] || excerpt[sourceLang] || '';
+  const displayContent = content[lang] || content[sourceLang] || '';
 
   const t = UI_STRINGS[lang];
   const category = CATEGORIES.find(c => c.id === item.category)?.[lang] || item.category;
@@ -26,16 +31,36 @@ export const NewsDetail = ({ item, lang, onClose }: NewsDetailProps) => {
   const shareTitle = displayTitle;
 
   const handleFacebookShare = () => {
-    // Linki panoya kopyala (Eğer pencere açılmazsa kullanıcı manuel yapıştırabilsin)
-    navigator.clipboard.writeText(shareUrl);
+    const width = 600;
+    const height = 700;
+    const left = (window.innerWidth - width) / 2;
+    const top = (window.innerHeight - height) / 2;
     
-    const url = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`;
-    const win = window.open(url, 'facebook-share-dialog', 'width=626,height=436');
-    
-    if (!win || win.closed || typeof win.closed === 'undefined') {
-      alert(lang === 'tr' 
-        ? 'Paylaşım penceresi engellendi veya sayfanız kısıtlı. Link kopyalandı, lütfen Facebook sayfanıza gidip manuel yapıştırın.' 
-        : 'Pencereya parvekirinê hat asteng kirin. Lînk hat kopîkirin, ji kerema xwe bi destan parve bikin.');
+    const win = window.open(
+      `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`, 
+      'facebook-share-dialog', 
+      `width=${width},height=${height},top=${top},left=${left},toolbar=no,location=no,directories=no,status=no,menubar=no,scrollbars=yes,resizable=yes`
+    );
+
+    if (!win) {
+      alert(lang === 'tr' ? 'Lütfen pop-up engelleyicinizi kapatın.' : 'Ji kerema xwe astengkerê pop-upê bigirin.');
+    }
+  };
+
+  const handleTwitterShare = () => {
+    const width = 600;
+    const height = 450;
+    const left = (window.innerWidth - width) / 2;
+    const top = (window.innerHeight - height) / 2;
+
+    const win = window.open(
+      `https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(shareTitle)}`, 
+      'twitter-share-dialog', 
+      `width=${width},height=${height},top=${top},left=${left},toolbar=no,location=no,directories=no,status=no,menubar=no,scrollbars=yes,resizable=yes`
+    );
+
+    if (!win) {
+      alert(lang === 'tr' ? 'Lütfen pop-up engelleyicinizi kapatın.' : 'Ji kerema xwe astengkerê pop-upê bigirin.');
     }
   };
 
@@ -49,9 +74,7 @@ export const NewsDetail = ({ item, lang, onClose }: NewsDetailProps) => {
     if (isMobile && navigator.share) {
       try {
         await navigator.share({ title: shareTitle, text: displayExcerpt, url: shareUrl });
-      } catch (error) {
-        handleFacebookShare();
-      }
+      } catch (error) { console.error('Error sharing:', error); }
     } else {
       handleFacebookShare();
     }
@@ -65,7 +88,7 @@ export const NewsDetail = ({ item, lang, onClose }: NewsDetailProps) => {
         const url = imgMatch[1];
         return (
           <div key={index} className="my-8">
-            <img src={url} alt="Haber görseli" className="w-full rounded-2xl shadow-lg" referrerPolicy="no-referrer" />
+            <img src={url} alt="Haber" className="w-full rounded-2xl shadow-lg" referrerPolicy="no-referrer" />
           </div>
         );
       }
@@ -76,7 +99,9 @@ export const NewsDetail = ({ item, lang, onClose }: NewsDetailProps) => {
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-md flex items-center justify-center p-0 md:p-4">
       <motion.div initial={{ y: 100, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 100, opacity: 0 }} className="bg-white w-full max-w-4xl h-full md:h-[95vh] md:rounded-3xl overflow-hidden flex flex-col relative">
-        <button onClick={onClose} className="absolute top-4 right-4 z-10 p-2 bg-black/20 hover:bg-black/40 text-white rounded-full backdrop-blur-md transition-all"><X size={24} /></button>
+        <button onClick={onClose} className="absolute top-4 right-4 z-10 p-2 bg-black/20 hover:bg-black/40 text-white rounded-full backdrop-blur-md transition-all">
+          <X size={24} />
+        </button>
         <div className="flex-grow overflow-y-auto scroll-smooth">
           <div className="relative h-[40vh] md:h-[50vh] w-full">
             <img src={item.imageUrl} alt={displayTitle} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
@@ -103,7 +128,9 @@ export const NewsDetail = ({ item, lang, onClose }: NewsDetailProps) => {
                   <button onClick={handleCopyLink} className="p-3 bg-gray-50 hover:bg-brand-accent hover:text-white rounded-full transition-all"><LinkIcon size={20} /></button>
                 </div>
               </div>
-              <button onClick={handleWebShare} className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-gray-500 hover:text-brand-primary transition-colors"><Share2 size={16} /> {t.shareNews}</button>
+              <button onClick={handleWebShare} className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-gray-500 hover:text-brand-primary transition-colors">
+                <Share2 size={16} /> {t.shareNews}
+              </button>
             </div>
           </div>
         </div>
