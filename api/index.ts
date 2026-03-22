@@ -79,7 +79,6 @@ const injectMetaTags = async (html: string, req: express.Request) => {
   
   const host = req.headers.host || 'patnos-post.vercel.app';
   const appUrl = `https://${host}`;
-  // Linki temizliyoruz (fb_refresh gibi ekleri siliyoruz)
   const fullUrl = `${appUrl}/news/${newsId}?lang=${lang}`;
 
   if (newsId) {
