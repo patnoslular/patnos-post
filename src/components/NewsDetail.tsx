@@ -26,14 +26,17 @@ export const NewsDetail = ({ item, lang, onClose }: NewsDetailProps) => {
   const shareTitle = displayTitle;
 
   const handleFacebookShare = () => {
-    // En standart ve güvenli paylaşım penceresi
+    // Linki panoya kopyala (Eğer pencere açılmazsa kullanıcı manuel yapıştırabilsin)
+    navigator.clipboard.writeText(shareUrl);
+    
     const url = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`;
-    window.open(url, 'facebook-share-dialog', 'width=626,height=436');
-  };
-
-  const handleTwitterShare = () => {
-    const url = `https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(shareTitle)}`;
-    window.open(url, 'twitter-share-dialog', 'width=626,height=436');
+    const win = window.open(url, 'facebook-share-dialog', 'width=626,height=436');
+    
+    if (!win || win.closed || typeof win.closed === 'undefined') {
+      alert(lang === 'tr' 
+        ? 'Paylaşım penceresi engellendi veya sayfanız kısıtlı. Link kopyalandı, lütfen Facebook sayfanıza gidip manuel yapıştırın.' 
+        : 'Pencereya parvekirinê hat asteng kirin. Lînk hat kopîkirin, ji kerema xwe bi destan parve bikin.');
+    }
   };
 
   const handleCopyLink = () => {
@@ -47,7 +50,7 @@ export const NewsDetail = ({ item, lang, onClose }: NewsDetailProps) => {
       try {
         await navigator.share({ title: shareTitle, text: displayExcerpt, url: shareUrl });
       } catch (error) {
-        console.error('Error sharing:', error);
+        handleFacebookShare();
       }
     } else {
       handleFacebookShare();
