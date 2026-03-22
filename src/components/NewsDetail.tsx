@@ -19,7 +19,6 @@ export const NewsDetail = ({ item, lang, onClose }: NewsDetailProps) => {
 
   const getShareUrl = () => {
     const origin = window.location.origin;
-    // Linki en sade ve sabit haliyle bırakıyoruz
     return `${origin}/news/${item.id}?lang=${lang}`;
   };
 
@@ -27,29 +26,14 @@ export const NewsDetail = ({ item, lang, onClose }: NewsDetailProps) => {
   const shareTitle = displayTitle;
 
   const handleFacebookShare = () => {
-    const width = 600;
-    const height = 700;
-    const left = (window.innerWidth - width) / 2;
-    const top = (window.innerHeight - height) / 2;
-    
-    window.open(
-      `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`, 
-      'facebook-share-dialog', 
-      `width=${width},height=${height},top=${top},left=${left},toolbar=no,location=no,status=no,menubar=no,scrollbars=yes,resizable=yes`
-    );
+    // En standart ve güvenli paylaşım penceresi
+    const url = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`;
+    window.open(url, 'facebook-share-dialog', 'width=626,height=436');
   };
 
   const handleTwitterShare = () => {
-    const width = 600;
-    const height = 450;
-    const left = (window.innerWidth - width) / 2;
-    const top = (window.innerHeight - height) / 2;
-
-    window.open(
-      `https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(shareTitle)}`, 
-      'twitter-share-dialog', 
-      `width=${width},height=${height},top=${top},left=${left},toolbar=no,location=no,status=no,menubar=no,scrollbars=yes,resizable=yes`
-    );
+    const url = `https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(shareTitle)}`;
+    window.open(url, 'twitter-share-dialog', 'width=626,height=436');
   };
 
   const handleCopyLink = () => {
