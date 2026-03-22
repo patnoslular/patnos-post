@@ -2,14 +2,28 @@ export type Language = 'tr' | 'ku';
 
 export interface NewsItem {
   id: string;
-  title: { tr: string; ku: string; };
-  excerpt: { tr: string; ku: string; };
-  content: { tr: string; ku: string; };
+  title: {
+    tr: string;
+    ku: string;
+  };
+  excerpt: {
+    tr: string;
+    ku: string;
+  };
+  content: {
+    tr: string;
+    ku: string;
+  };
   category: string;
   author: string;
   date: string;
   imageUrl: string;
   readTime: string;
+}
+
+export interface HeaderSettings {
+  leftImageUrl: string;
+  rightImageUrl: string;
 }
 
 export const MENU_LINKS = [
@@ -134,3 +148,27 @@ export const UI_STRINGS = {
     lifeCulture: 'Jiyan û Çand'
   }
 };
+
+// Bu kısım useNews.ts için gereklidir, lütfen silmeyin:
+export const NEWS_DATA: NewsItem[] = [
+  {
+    id: '1',
+    title: {
+      tr: 'Patnos Derneği Yeni Projesini Açıkladı',
+      ku: 'Komeleya Panosê Projeya Xwe Ya Nû Eşkere Kir'
+    },
+    excerpt: {
+      tr: 'Patnos Yardımlaşma ve Dayanışma Derneği, eğitim alanında büyük bir burs seferberliği başlatıyor.',
+      ku: 'Komeleya Alîkarî û Piştevaniya Panosê, di warê perwerdehiyê de seferberiyeke mezin a bûrsê dide destpêkirin.'
+    },
+    content: {
+      tr: 'Dernek binasında yapılan basın açıklamasında, bu yıl 500 öğrenciye burs verileceği duyuruldu...',
+      ku: 'Di daxuyaniya çapemeniyê ya ku li avahiya komeleyê hat dayîn de, hat ragihandin ku îsal dê ji bo 500 xwendekaran bûrs were dayîn...'
+    },
+    category: 'association',
+    author: 'Ahmet Yılmaz',
+    date: '14 Mart 2026',
+    imageUrl: 'https://picsum.photos/seed/patnos1/800/600',
+    readTime: '5 dk'
+  }
+];
