@@ -66,7 +66,6 @@ app.get('/robots.txt', (req, res) => {
 
 const injectMetaTags = async (html: string, req: express.Request) => {
   const path = req.path;
-  // URL'den dili daha garanti bir yöntemle çekiyoruz
   const urlObj = new URL(req.url, `http://${req.headers.host}`);
   const lang = urlObj.searchParams.get('lang') || 'tr';
   
@@ -91,7 +90,6 @@ const injectMetaTags = async (html: string, req: express.Request) => {
         const { data: newsItem, error } = await supabase.from('news').select('*').eq('id', newsId).single();
         
         if (newsItem && !error) {
-          // AKILLI DİL SEÇİMİ: Eğer lang=ku ise Kürtçe, yoksa Türkçe, o da yoksa olanı al.
           const newsTitle = newsItem.title?.[lang] || newsItem.title?.ku || newsItem.title?.tr || newsItem.title || 'Haber';
           const newsExcerpt = newsItem.excerpt?.[lang] || newsItem.excerpt?.ku || newsItem.excerpt?.tr || (newsItem.content?.[lang] || newsItem.content?.ku || newsItem.content?.tr || '').substring(0, 160) || description;
           
