@@ -1,8 +1,6 @@
 import { motion } from 'motion/react';
-import { X, Calendar, User, Clock, Share2, Facebook, Twitter, Link as LinkIcon, Loader2 } from 'lucide-react';
+import { X, Calendar, User, Clock, Share2, Facebook, Twitter, Link as LinkIcon } from 'lucide-react';
 import { NewsItem, CATEGORIES, Language, UI_STRINGS } from '../constants';
-import { useState, useEffect } from 'react';
-import { translateContent } from '../services/geminiService';
 
 interface NewsDetailProps {
   item: NewsItem;
@@ -36,7 +34,7 @@ export const NewsDetail = ({ item, lang, onClose }: NewsDetailProps) => {
     window.open(
       `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`, 
       'facebook-share-dialog', 
-      `width=${width},height=${height},top=${top},left=${left},toolbar=no,location=no,status=no,menubar=no,scrollbars=yes,resizable=yes`
+      `width=${width},height=${height},top=${top},left=${left},toolbar=no,location=no,directories=no,status=no,menubar=no,scrollbars=yes,resizable=yes`
     );
   };
 
@@ -49,7 +47,7 @@ export const NewsDetail = ({ item, lang, onClose }: NewsDetailProps) => {
     window.open(
       `https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(shareTitle)}`, 
       'twitter-share-dialog', 
-      `width=${width},height=${height},top=${top},left=${left},toolbar=no,location=no,status=no,menubar=no,scrollbars=yes,resizable=yes`
+      `width=${width},height=${height},top=${top},left=${left},toolbar=no,location=no,directories=no,status=no,menubar=no,scrollbars=yes,resizable=yes`
     );
   };
 
@@ -72,8 +70,6 @@ export const NewsDetail = ({ item, lang, onClose }: NewsDetailProps) => {
         console.error('Error sharing:', error);
       }
     } else {
-      // MASAÜSTÜNDE: Windows menüsünü açmak yerine doğrudan Facebook penceresini açar.
-      // Bu sayede Edge'e geçiş yapmaz, Chrome'da kalır.
       handleFacebookShare();
     }
   };
