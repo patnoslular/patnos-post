@@ -19,7 +19,9 @@ export const NewsDetail = ({ item, lang, onClose }: NewsDetailProps) => {
 
   const getShareUrl = () => {
     const origin = window.location.origin;
-    return `${origin}/news/${item.id}?lang=${lang}`;
+    // Her paylaşımda linki "yeni" gibi göstererek Facebook'un takılmasını engelliyoruz
+    const timestamp = Date.now();
+    return `${origin}/news/${item.id}?lang=${lang}&fb_refresh=${timestamp}`;
   };
 
   const shareUrl = getShareUrl();
