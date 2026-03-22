@@ -72,13 +72,15 @@ const injectMetaTags = async (html: string, req: express.Request) => {
   const parts = path.split('/').filter(Boolean);
   let newsId = (parts[0] === 'news' && parts[1]) ? parts[1].split(/[?#]/)[0] : null;
   
-  let title = "The Patnos Post";
+  let title = "The Patnos Post | Gerçeğin Peşinde, Geleceğin İzinde";
   let description = "Patnos ve çevresinden en güncel haberler.";
   let image = "https://static.wixstatic.com/media/7e2174_e230755889444a418254ba8ec11e24f7~mv2.png";
+  let locale = lang === 'ku' ? 'ku_TR' : 'tr_TR';
   
   const host = req.headers.host || 'patnos-post.vercel.app';
   const appUrl = `https://${host}`;
-  const fullUrl = `${appUrl}${req.originalUrl}`;
+  // Linki temizliyoruz (fb_refresh gibi ekleri siliyoruz)
+  const fullUrl = `${appUrl}/news/${newsId}?lang=${lang}`;
 
   if (newsId) {
     try {
@@ -92,7 +94,7 @@ const injectMetaTags = async (html: string, req: express.Request) => {
           const newsTitle = newsItem.title?.[lang] || newsItem.title?.ku || newsItem.title?.tr || 'Haber';
           const newsExcerpt = newsItem.excerpt?.[lang] || newsItem.excerpt?.ku || newsItem.excerpt?.tr || description;
           
-          title = newsTitle;
+          title = `${newsTitle} | The Patnos Post`;
           description = newsExcerpt;
           
           if (newsItem.imageUrl) {
@@ -111,7 +113,8 @@ const injectMetaTags = async (html: string, req: express.Request) => {
     .replace(/__OG_TITLE__/g, escape(title))
     .replace(/__OG_DESCRIPTION__/g, escape(description))
     .replace(/__OG_IMAGE__/g, escape(image))
-    .replace(/__OG_URL__/g, escape(fullUrl));
+    .replace(/__OG_URL__/g, escape(fullUrl))
+    .replace(/__OG_LOCALE__/g, locale);
 };
 
 app.use('/assets', express.static(path.join(distPath, 'assets')));
