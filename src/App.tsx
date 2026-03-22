@@ -49,7 +49,6 @@ export default function App() {
 
   const t = UI_STRINGS[lang];
 
-  // Sayfa yüklendiğinde dildeki URL parametresini kontrol et
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const urlLang = params.get('lang') as Language;
@@ -66,7 +65,6 @@ export default function App() {
     setIsAdmin(adminStatus);
   }, []);
 
-  // Dil veya sayfa değiştiğinde URL'yi otomatik güncelle
   useEffect(() => {
     const url = new URL(window.location.href);
     if (url.searchParams.get('lang') !== lang) {
