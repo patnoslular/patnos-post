@@ -19,9 +19,8 @@ export const NewsDetail = ({ item, lang, onClose }: NewsDetailProps) => {
 
   const getShareUrl = () => {
     const origin = window.location.origin;
-    // Her paylaşımda linki "yeni" gibi göstererek Facebook'un takılmasını engelliyoruz
-    const timestamp = Date.now();
-    return `${origin}/news/${item.id}?lang=${lang}&fb_refresh=${timestamp}`;
+    // Linki en sade ve sabit haliyle bırakıyoruz
+    return `${origin}/news/${item.id}?lang=${lang}`;
   };
 
   const shareUrl = getShareUrl();
@@ -36,7 +35,7 @@ export const NewsDetail = ({ item, lang, onClose }: NewsDetailProps) => {
     window.open(
       `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`, 
       'facebook-share-dialog', 
-      `width=${width},height=${height},top=${top},left=${left},toolbar=no,location=no,directories=no,status=no,menubar=no,scrollbars=yes,resizable=yes`
+      `width=${width},height=${height},top=${top},left=${left},toolbar=no,location=no,status=no,menubar=no,scrollbars=yes,resizable=yes`
     );
   };
 
@@ -49,7 +48,7 @@ export const NewsDetail = ({ item, lang, onClose }: NewsDetailProps) => {
     window.open(
       `https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(shareTitle)}`, 
       'twitter-share-dialog', 
-      `width=${width},height=${height},top=${top},left=${left},toolbar=no,location=no,directories=no,status=no,menubar=no,scrollbars=yes,resizable=yes`
+      `width=${width},height=${height},top=${top},left=${left},toolbar=no,location=no,status=no,menubar=no,scrollbars=yes,resizable=yes`
     );
   };
 
@@ -60,14 +59,9 @@ export const NewsDetail = ({ item, lang, onClose }: NewsDetailProps) => {
 
   const handleWebShare = async () => {
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    
     if (isMobile && navigator.share) {
       try {
-        await navigator.share({
-          title: shareTitle,
-          text: displayExcerpt,
-          url: shareUrl,
-        });
+        await navigator.share({ title: shareTitle, text: displayExcerpt, url: shareUrl });
       } catch (error) {
         console.error('Error sharing:', error);
       }
