@@ -53,14 +53,8 @@ export default function App() {
     const adminStatus = localStorage.getItem('is_admin') === 'true';
     setIsAdmin(adminStatus);
     
-    // URL'den dili oku
-    const urlParams = new URLSearchParams(window.location.search);
-    const urlLang = urlParams.get('lang') as Language;
     const savedLang = localStorage.getItem('lang') as Language;
-    
-    if (urlLang && (urlLang === 'tr' || urlLang === 'ku')) {
-      setLang(urlLang);
-    } else if (savedLang) {
+    if (savedLang) {
       setLang(savedLang);
     } else {
       setLang('ku');
@@ -79,7 +73,6 @@ export default function App() {
     setLang(newLang);
     localStorage.setItem('lang', newLang);
     
-    // Adres çubuğundaki linki güncelle (?lang=ku ekle)
     const url = new URL(window.location.href);
     url.searchParams.set('lang', newLang);
     window.history.replaceState({}, '', url.toString());
@@ -129,12 +122,21 @@ export default function App() {
       <div className="min-h-screen flex flex-col bg-white">
         <div className="bg-[#E2C2A4] py-2 md:py-4 px-4 border-b border-black relative z-50">
           <div className="max-w-7xl mx-auto flex justify-between md:justify-center items-center">
-            <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="md:hidden p-2 border-2 border-black bg-white text-black shadow-sm">
+            <button 
+              onClick={() => setIsMenuOpen(!isMenuOpen)}
+              className="md:hidden p-2 border-2 border-black bg-white text-black shadow-sm"
+            >
               {isMenuOpen ? <X size={20} /> : <Menu size={20} />}
             </button>
             <div className="hidden md:flex flex-wrap justify-center items-center gap-2 md:gap-4">
               {MENU_LINKS.map((link, idx) => (
-                <a key={idx} href={link.url} target="_blank" rel="noopener noreferrer" className="px-4 py-1.5 border-2 border-[#4A69BD] bg-white text-[#4A69BD] text-[10px] font-bold tracking-widest hover:bg-[#4A69BD] hover:text-white transition-all shadow-sm">
+                <a 
+                  key={idx}
+                  href={link.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-4 py-1.5 border-2 border-[#4A69BD] bg-white text-[#4A69BD] text-[10px] font-bold tracking-widest hover:bg-[#4A69BD] hover:text-white transition-all shadow-sm"
+                >
                   {link.label}
                 </a>
               ))}
@@ -142,13 +144,21 @@ export default function App() {
             <div className="md:ml-2 md:pl-2 md:border-l md:border-black/20 flex items-center gap-2">
               {isAdmin ? (
                 <>
-                  <button onClick={() => setShowAdmin(true)} className="px-3 md:px-4 py-1.5 border-2 border-brand-accent bg-brand-accent text-white text-[10px] font-bold tracking-widest flex items-center gap-2">
+                  <button 
+                    onClick={() => setShowAdmin(true)} 
+                    className="px-3 md:px-4 py-1.5 border-2 border-brand-accent bg-brand-accent text-white text-[10px] font-bold tracking-widest flex items-center gap-2"
+                  >
                     <Settings size={12} /> <span className="hidden sm:inline">{t.panel}</span>
                   </button>
-                  <button onClick={handleLogout} className="p-1.5 border-2 border-red-600 text-red-600 rounded"><LogOut size={12} /></button>
+                  <button onClick={handleLogout} className="p-1.5 border-2 border-red-600 text-red-600 rounded">
+                    <LogOut size={12} />
+                  </button>
                 </>
               ) : (
-                <button onClick={() => setShowLogin(true)} className="px-3 md:px-4 py-1.5 border-2 border-gray-800 bg-gray-800 text-white text-[10px] font-bold tracking-widest">
+                <button 
+                  onClick={() => setShowLogin(true)}
+                  className="px-3 md:px-4 py-1.5 border-2 border-gray-800 bg-gray-800 text-white text-[10px] font-bold tracking-widest"
+                >
                   {t.editorLogin}
                 </button>
               )}
@@ -156,10 +166,22 @@ export default function App() {
           </div>
           <AnimatePresence>
             {isMenuOpen && (
-              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="md:hidden absolute top-full left-0 right-0 bg-[#E2C2A4] border-b border-black overflow-hidden shadow-xl">
+              <motion.div 
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="md:hidden absolute top-full left-0 right-0 bg-[#E2C2A4] border-b border-black overflow-hidden shadow-xl"
+              >
                 <div className="p-4 flex flex-col gap-2">
                   {MENU_LINKS.map((link, idx) => (
-                    <a key={idx} href={link.url} target="_blank" rel="noopener noreferrer" onClick={() => setIsMenuOpen(false)} className="w-full text-center px-4 py-3 border-2 border-[#4A69BD] bg-white text-[#4A69BD] text-xs font-bold tracking-widest">
+                    <a 
+                      key={idx}
+                      href={link.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => setIsMenuOpen(false)}
+                      className="w-full text-center px-4 py-3 border-2 border-[#4A69BD] bg-white text-[#4A69BD] text-xs font-bold tracking-widest"
+                    >
                       {link.label}
                     </a>
                   ))}
@@ -172,19 +194,46 @@ export default function App() {
         <header className="bg-white relative">
           <div className="max-w-7xl mx-auto px-4 py-6 text-center relative">
             <div className="absolute top-4 right-4 z-10 flex gap-2">
-              <button onClick={() => changeLang('ku')} className={`group relative px-4 py-2 rounded-full text-[10px] font-black tracking-tighter transition-all duration-300 transform hover:scale-110 shadow-lg ${lang === 'ku' ? 'bg-gradient-to-r from-brand-accent to-orange-600 text-white ring-4 ring-orange-200' : 'bg-white text-gray-800'}`}>KURDÎ</button>
-              <button onClick={() => changeLang('tr')} className={`group relative px-4 py-2 rounded-full text-[10px] font-black tracking-tighter transition-all duration-300 transform hover:scale-110 shadow-lg ${lang === 'tr' ? 'bg-gradient-to-r from-brand-accent to-orange-600 text-white ring-4 ring-orange-200' : 'bg-white text-gray-800'}`}>TÜRKÇE</button>
+              <button 
+                onClick={() => changeLang('ku')}
+                className={`group relative px-4 py-2 rounded-full text-[10px] font-black tracking-tighter transition-all duration-300 transform hover:scale-110 shadow-lg ${
+                  lang === 'ku' ? 'bg-gradient-to-r from-brand-accent to-orange-600 text-white ring-4 ring-orange-200' : 'bg-white text-gray-800'
+                }`}
+              >
+                KURDÎ
+              </button>
+              <button 
+                onClick={() => changeLang('tr')}
+                className={`group relative px-4 py-2 rounded-full text-[10px] font-black tracking-tighter transition-all duration-300 transform hover:scale-110 shadow-lg ${
+                  lang === 'tr' ? 'bg-gradient-to-r from-brand-accent to-orange-600 text-white ring-4 ring-orange-200' : 'bg-white text-gray-800'
+                }`}
+              >
+                TÜRKÇE
+              </button>
             </div>
-            <img src="https://static.wixstatic.com/media/7e2174_e230755889444a418254ba8ec11e24f7~mv2.png" className="max-w-full h-auto mx-auto max-h-[250px] object-contain drop-shadow-2xl cursor-pointer" alt="Banner" referrerPolicy="no-referrer" onClick={handleLogoClick} />
+            <img 
+              src="https://static.wixstatic.com/media/7e2174_e230755889444a418254ba8ec11e24f7~mv2.png" 
+              className="max-w-full h-auto mx-auto max-h-[250px] object-contain drop-shadow-2xl cursor-pointer" 
+              alt="Banner"
+              referrerPolicy="no-referrer"
+              onClick={handleLogoClick}
+            />
             <div className="mt-1 md:mt-2 overflow-hidden">
-              <motion.p key={lang} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="text-[10px] sm:text-xs md:text-2xl font-cursive text-gray-800 whitespace-nowrap px-4">
+              <motion.p 
+                key={lang}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="text-[10px] sm:text-xs md:text-2xl font-cursive text-gray-800 whitespace-nowrap px-4"
+              >
                 {lang === 'tr' ? 'Gerçeğin Peşinde, Geleceğin İzinde' : 'Di Peşiya Rastiyê De, Di Şopa Pêşerojê De'}
               </motion.p>
             </div>
           </div>
           <div className="bg-black text-white py-2 overflow-hidden whitespace-nowrap">
             <div className="max-w-7xl mx-auto px-4 md:px-8 flex items-center">
-              <span className="bg-brand-accent text-white text-[10px] font-bold px-2 py-0.5 rounded mr-4 shrink-0">{t.breakingNews}</span>
+              <span className="bg-brand-accent text-white text-[10px] font-bold px-2 py-0.5 rounded mr-4 shrink-0">
+                {t.breakingNews}
+              </span>
               <div className="flex gap-12 animate-marquee">
                 {news.slice(0, 5).map(item => (
                   <button key={item.id} className="text-[11px] font-medium cursor-pointer hover:text-brand-accent transition-colors" onClick={() => navigate(`/news/${item.id}?lang=${lang}`)}>
@@ -201,9 +250,19 @@ export default function App() {
             <ul className="flex justify-start md:justify-center gap-3 md:gap-8 py-2 md:py-4 min-w-max mx-auto">
               {CATEGORIES.map(cat => (
                 <li key={cat.id}>
-                  <button onClick={() => handleCategoryClick(cat.id)} className={`text-[9px] md:text-xs font-bold uppercase tracking-widest transition-colors relative pb-1 ${activeCategory === cat.id && isHome ? 'text-brand-accent' : 'text-gray-500 hover:text-brand-primary'}`}>
+                  <button 
+                    onClick={() => handleCategoryClick(cat.id)}
+                    className={`text-[9px] md:text-xs font-bold uppercase tracking-widest transition-colors relative pb-1 ${
+                      activeCategory === cat.id && isHome ? 'text-brand-accent' : 'text-gray-500 hover:text-brand-primary'
+                    }`}
+                  >
                     {cat[lang]}
-                    {activeCategory === cat.id && isHome && <motion.div layoutId="activeTab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-accent" />}
+                    {activeCategory === cat.id && isHome && (
+                      <motion.div 
+                        layoutId="activeTab"
+                        className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-accent"
+                      />
+                    )}
                   </button>
                 </li>
               ))}
@@ -223,18 +282,35 @@ export default function App() {
                         {sideNews.map(item => <NewsCard key={item.id} item={item} lang={lang} />)}
                       </div>
                       <aside className="bg-gray-50 p-6 rounded-xl border border-gray-100">
-                        <div className="flex items-center gap-2 mb-6 text-brand-accent"><TrendingUp size={20} /><h2 className="text-xl font-serif font-bold text-brand-primary">{t.popularNews}</h2></div>
-                        <div className="space-y-6">{news.slice(0, 5).map((item, idx) => <PopularNewsItem key={item.id} item={item} idx={idx} lang={lang} />)}</div>
+                        <div className="flex items-center gap-2 mb-6 text-brand-accent">
+                          <TrendingUp size={20} />
+                          <h2 className="text-xl font-serif font-bold text-brand-primary">{t.popularNews}</h2>
+                        </div>
+                        <div className="space-y-6">
+                          {news.slice(0, 5).map((item, idx) => (
+                            <PopularNewsItem key={item.id} item={item} idx={idx} lang={lang} />
+                          ))}
+                        </div>
                       </aside>
                     </div>
                     <section className="mb-16">
-                      <div className="flex items-center justify-between mb-8 border-b border-gray-200 pb-4"><h2 className="text-3xl font-serif font-bold">{t.latestNews}</h2><button onClick={() => handleCategoryClick('all')} className="flex items-center gap-1 text-xs font-bold uppercase tracking-widest text-gray-500 hover:text-brand-accent">{t.seeAll} <ChevronRight size={16} /></button></div>
+                      <div className="flex items-center justify-between mb-8 border-b border-gray-200 pb-4">
+                        <h2 className="text-3xl font-serif font-bold">{t.latestNews}</h2>
+                        <button 
+                          onClick={() => handleCategoryClick('all')}
+                          className="flex items-center gap-1 text-xs font-bold uppercase tracking-widest text-gray-500 hover:text-brand-accent"
+                        >
+                          {t.seeAll} <ChevronRight size={16} />
+                        </button>
+                      </div>
                       <div className="news-grid">{gridNews.map(item => <NewsCard key={item.id} item={item} lang={lang} />)}</div>
                     </section>
                   </>
                 ) : (
                   <section className="mb-16">
-                    <h2 className="text-3xl font-serif font-bold mb-8 border-b border-gray-200 pb-4">{activeCategory === 'all' ? t.latestNews : CATEGORIES.find(c => c.id === activeCategory)?.[lang]}</h2>
+                    <h2 className="text-3xl font-serif font-bold mb-8 border-b border-gray-200 pb-4">
+                      {activeCategory === 'all' ? t.latestNews : CATEGORIES.find(c => c.id === activeCategory)?.[lang]}
+                    </h2>
                     <div className="news-grid">{filteredNews.map(item => <NewsCard key={item.id} item={item} lang={lang} />)}</div>
                   </section>
                 )}
@@ -249,7 +325,8 @@ export default function App() {
             <h2 className="text-3xl font-serif italic mb-4">The Patnos Post</h2>
             <p className="text-gray-500 text-sm mb-8">{t.aboutUsDesc}</p>
             <div className="flex justify-center gap-4 mb-8">
-              <a href="https://www.facebook.com/izmirpatnoslularder" target="_blank" rel="noopener noreferrer" className="p-2 bg-gray-100 rounded-full hover:bg-brand-accent hover:text-white transition-all"><Facebook size={18} /></a>
+              {/* Facebook linki boşaltıldı */}
+              <a href="#" className="p-2 bg-gray-100 rounded-full hover:bg-brand-accent hover:text-white transition-all"><Facebook size={18} /></a>
               <a href="#" className="p-2 bg-gray-100 rounded-full hover:bg-brand-accent hover:text-white transition-all"><Twitter size={18} /></a>
               <a href="#" className="p-2 bg-gray-100 rounded-full hover:bg-brand-accent hover:text-white transition-all"><Instagram size={18} /></a>
             </div>
