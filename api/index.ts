@@ -72,10 +72,9 @@ const injectMetaTags = async (html: string, req: express.Request) => {
   const parts = path.split('/').filter(Boolean);
   let newsId = (parts[0] === 'news' && parts[1]) ? parts[1].split(/[?#]/)[0] : null;
   
-  let title = "The Patnos Post | Gerçeğin Peşinde, Geleceğin İzinde";
-  let description = "Patnos ve çevresinden en güncel haberler, yaşam ve kültür içerikleri.";
+  let title = "The Patnos Post";
+  let description = "Patnos ve çevresinden en güncel haberler.";
   let image = "https://static.wixstatic.com/media/7e2174_e230755889444a418254ba8ec11e24f7~mv2.png";
-  let locale = lang === 'ku' ? 'ku_TR' : 'tr_TR';
   
   const host = req.headers.host || 'patnos-post.vercel.app';
   const appUrl = `https://${host}`;
@@ -90,10 +89,10 @@ const injectMetaTags = async (html: string, req: express.Request) => {
         const { data: newsItem, error } = await supabase.from('news').select('*').eq('id', newsId).single();
         
         if (newsItem && !error) {
-          const newsTitle = newsItem.title?.[lang] || newsItem.title?.ku || newsItem.title?.tr || newsItem.title || 'Haber';
-          const newsExcerpt = newsItem.excerpt?.[lang] || newsItem.excerpt?.ku || newsItem.excerpt?.tr || (newsItem.content?.[lang] || newsItem.content?.ku || newsItem.content?.tr || '').substring(0, 160) || description;
+          const newsTitle = newsItem.title?.[lang] || newsItem.title?.ku || newsItem.title?.tr || 'Haber';
+          const newsExcerpt = newsItem.excerpt?.[lang] || newsItem.excerpt?.ku || newsItem.excerpt?.tr || description;
           
-          title = `${newsTitle} | The Patnos Post`;
+          title = newsTitle;
           description = newsExcerpt;
           
           if (newsItem.imageUrl) {
@@ -102,7 +101,7 @@ const injectMetaTags = async (html: string, req: express.Request) => {
         }
       }
     } catch (e) {
-      console.error('[MetaTags] Error fetching news:', e);
+      console.error('[MetaTags] Error:', e);
     }
   }
 
@@ -112,8 +111,7 @@ const injectMetaTags = async (html: string, req: express.Request) => {
     .replace(/__OG_TITLE__/g, escape(title))
     .replace(/__OG_DESCRIPTION__/g, escape(description))
     .replace(/__OG_IMAGE__/g, escape(image))
-    .replace(/__OG_URL__/g, escape(fullUrl))
-    .replace(/__OG_LOCALE__/g, locale);
+    .replace(/__OG_URL__/g, escape(fullUrl));
 };
 
 app.use('/assets', express.static(path.join(distPath, 'assets')));
