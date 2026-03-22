@@ -2,28 +2,14 @@ export type Language = 'tr' | 'ku';
 
 export interface NewsItem {
   id: string;
-  title: {
-    tr: string;
-    ku: string;
-  };
-  excerpt: {
-    tr: string;
-    ku: string;
-  };
-  content: {
-    tr: string;
-    ku: string;
-  };
-  category: string; // We'll map categories in the UI
+  title: { tr: string; ku: string; };
+  excerpt: { tr: string; ku: string; };
+  content: { tr: string; ku: string; };
+  category: string;
   author: string;
   date: string;
   imageUrl: string;
   readTime: string;
-}
-
-export interface HeaderSettings {
-  leftImageUrl: string;
-  rightImageUrl: string;
 }
 
 export const MENU_LINKS = [
@@ -31,7 +17,7 @@ export const MENU_LINKS = [
   { label: 'DERNEĞİMİZ', url: 'https://www.patnosum.com/derne%C4%9Fi-mi-z' },
   { label: 'DERGİLERİMİZ', url: 'https://www.patnosum.com/dergi-leri-mi-z' },
   { label: 'PROJELERİMİZ', url: 'https://www.patnosum.com/projeleri%CC%87mi%CC%87z' },
-  { label: 'SÜPHAN TV', url: 'https://www.patnosum.com/blog' },
+  { label: 'SÜPHAN TV', url: 'https://www.patnosum.com/s%C3%BCphan-tv' },
 ];
 
 export const CATEGORIES = [
@@ -148,46 +134,3 @@ export const UI_STRINGS = {
     lifeCulture: 'Jiyan û Çand'
   }
 };
-
-export const NEWS_DATA: NewsItem[] = [
-  {
-    id: '1',
-    title: {
-      tr: 'Patnos Derneği Yeni Projesini Açıkladı',
-      ku: 'Komeleya Panosê Projeya Xwe Ya Nû Eşkere Kir'
-    },
-    excerpt: {
-      tr: 'Patnos Yardımlaşma ve Dayanışma Derneği, eğitim alanında büyük bir burs seferberliği başlatıyor.',
-      ku: 'Komeleya Alîkarî û Piştevaniya Panosê, di warê perwerdehiyê de seferberiyeke mezin a bûrsê dide destpêkirin.'
-    },
-    content: {
-      tr: 'Dernek binasında yapılan basın açıklamasında, bu yıl 500 öğrenciye burs verileceği duyuruldu...',
-      ku: 'Di daxuyaniya çapemeniyê ya ku li avahiya komeleyê hat dayîn de, hat ragihandin ku îsal dê ji bo 500 xwendekaran bûrs were dayîn...'
-    },
-    category: 'association',
-    author: 'Ahmet Yılmaz',
-    date: '14 Mart 2026',
-    imageUrl: 'https://picsum.photos/seed/patnos1/800/600',
-    readTime: '5 dk'
-  },
-  {
-    id: '2',
-    title: {
-      tr: 'Patnos\'ta Bahar Hazırlıkları Başladı',
-      ku: 'Li Panosê Amadekariyên Biharê Dest Pê Kirin'
-    },
-    excerpt: {
-      tr: 'Patnos Belediyesi, bahar aylarının gelmesiyle birlikte çevre düzenleme çalışmalarına hız verdi.',
-      ku: 'Şaredariya Panosê, bi hatina mehên biharê re xebatên sererastkirina hawirdorê lezand.'
-    },
-    content: {
-      tr: 'Şehrin dört bir yanında çiçeklendirme ve park yenileme çalışmaları devam ediyor...',
-      ku: 'Li her çar aliyên bajêr xebatên kulîlkandin û nûkirina parkan berdewam dikin...'
-    },
-    category: 'patnos',
-    author: 'Elif Kaya',
-    date: '13 Mart 2026',
-    imageUrl: 'https://picsum.photos/seed/patnos2/800/600',
-    readTime: '4 dk'
-  }
-];
