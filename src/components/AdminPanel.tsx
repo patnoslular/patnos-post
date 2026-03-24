@@ -1,8 +1,9 @@
 import { useState, useRef, ChangeEvent } from 'react';
 import { motion } from 'motion/react';
-import { X, Plus, Edit2, Trash2, Save, Image as ImageIcon, Upload, Loader2, Languages, Import, FileText, LogOut, Settings, Key } from 'lucide-react';
+import { X, Plus, Edit2, Trash2, Save, Image as ImageIcon, Video, Upload, Loader2, Languages, Import, FileText, LogOut, Settings, Key } from 'lucide-react';
 import { NewsItem, CATEGORIES, Language, UI_STRINGS, HeaderSettings } from '../constants';
 import { useNews } from '../hooks/useNews';
+import { useSettings } from '../hooks/useSettings';
 import { supabase, getSupabaseConfig } from '../supabase';
 import { createClient } from '@supabase/supabase-js';
 import { translateContent } from '../services/geminiService';
@@ -15,6 +16,8 @@ interface AdminPanelProps {
 
 export const AdminPanel = ({ onClose, onLogout, lang }: AdminPanelProps) => {
   const { news, addNews, editNews, removeNews } = useNews();
+  const { settings, updateSettings } = useSettings();
+  const [activeTab, setActiveTab] = useState<'news' | 'settings'>('news');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isAdding, setIsAdding] = useState(false);
   const [formData, setFormData] = useState<Partial<NewsItem>>({});
@@ -22,6 +25,8 @@ export const AdminPanel = ({ onClose, onLogout, lang }: AdminPanelProps) => {
   const [uploadStatus, setUploadStatus] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mainFileInputRef = useRef<HTMLInputElement>(null);
+  const leftHeaderInputRef = useRef<HTMLInputElement>(null);
+  const rightHeaderInputRef = useRef<HTMLInputElement>(null);
   const contentInputRef = useRef<HTMLTextAreaElement>(null);
   const [activeLangTab, setActiveLangTab] = useState<Language>('tr');
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
@@ -33,6 +38,8 @@ export const AdminPanel = ({ onClose, onLogout, lang }: AdminPanelProps) => {
   const [importProgress, setImportProgress] = useState({ current: 0, total: 0 });
   const [manualApiKey, setManualApiKey] = useState(localStorage.getItem('GEMINI_API_KEY_OVERRIDE') || '');
   const [showKeySettings, setShowKeySettings] = useState(false);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
 
   const saveManualKey = () => {
     localStorage.setItem('GEMINI_API_KEY_OVERRIDE', manualApiKey);
@@ -86,7 +93,6 @@ export const AdminPanel = ({ onClose, onLogout, lang }: AdminPanelProps) => {
           : `Di dema wergerandinê de çewtiyek çêbû: ${error?.message || 'Çewtiya nenas'}`);
       }
 
-      // Fallback to copying original text even for single field
       alert(lang === 'tr' 
         ? "Çeviri yapılamadığı için orijinal metin kopyalandı." 
         : "Ji ber ku werger nehat kirin, deqa orjînal hat kopîkirin.");
@@ -118,15 +124,12 @@ export const AdminPanel = ({ onClose, onLogout, lang }: AdminPanelProps) => {
 
     setIsTranslatingAll(true);
     try {
-      // Switch to the target tab immediately so the user sees the progress
       setActiveLangTab(targetLang);
 
-      // We'll process fields and update state
       for (const field of fields) {
         const text = (formData[field] as any)?.[sourceLang];
         if (!text) continue;
         
-        // Copy to target optimistically so there's always a fallback
         setFormData(prev => ({
           ...prev,
           [field]: { ...(prev[field] || {}), [targetLang]: text } as any
@@ -142,33 +145,8 @@ export const AdminPanel = ({ onClose, onLogout, lang }: AdminPanelProps) => {
           }
         } catch (e: any) {
           console.error(`Translation failed for ${field}`, e);
-          const isQuotaError = e?.message?.includes('quota') || e?.message?.includes('429');
-          const isKeyMissing = e?.message === 'API_KEY_MISSING';
-          const isKeyInvalid = e?.message?.includes('API key not valid') || e?.message?.includes('API_KEY_INVALID');
-          const isSafetyBlock = e?.message?.startsWith('SAFETY_BLOCK');
-
-          if (isKeyMissing || isKeyInvalid) {
-            alert(lang === 'tr' 
-              ? "Sistem yapılandırma hatası: Geçersiz veya eksik API anahtarı." 
-              : "Çewtiya mîhengkirina pergalê: Mifteya API ya nederbasdar an kêm e.");
-            break;
-          } else if (isQuotaError) {
-             alert(lang === 'tr' 
-              ? "Yapay zeka kullanım kotası doldu. Lütfen 1 dakika bekleyip tekrar deneyin." 
-              : "Kotaya bikaranîna AI tije bûye. Ji kerema xwe 1 deqe bisekinin û dîsa biceribînin.");
-             break; // Stop translating other fields if quota is hit
-          } else if (isSafetyBlock) {
-             alert(lang === 'tr' 
-              ? `Hata (${field}): İçerik güvenlik filtresine takıldı.` 
-              : `Çewtî (${field}): Naverok di fîltreyê de asê ma.`);
-          } else {
-            alert(lang === 'tr' 
-              ? `Hata (${field}): ${e?.message || 'Bilinmeyen hata'}` 
-              : `Çewtî (${field}): ${e?.message || 'Çewtiya nenas'}`);
-          }
         }
         
-        // Increased delay to 1 second between fields to be safer with 15 RPM limit
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
       
@@ -208,7 +186,6 @@ export const AdminPanel = ({ onClose, onLogout, lang }: AdminPanelProps) => {
                         item.querySelector("media\\:content, content")?.getAttribute("url") || 
                         "https://picsum.photos/seed/wix/800/600";
 
-        // Translate to Kurdish
         const titleKu = await translateContent(titleTr, 'ku');
         const excerptKu = await translateContent(descriptionTr.substring(0, 200), 'ku');
         const contentKu = await translateContent(descriptionTr, 'ku');
@@ -217,7 +194,7 @@ export const AdminPanel = ({ onClose, onLogout, lang }: AdminPanelProps) => {
           title: { tr: titleTr, ku: titleKu },
           excerpt: { tr: descriptionTr.substring(0, 200), ku: excerptKu },
           content: { tr: descriptionTr, ku: contentKu },
-          category: 'general', // Default category
+          category: 'general',
           author: item.querySelector("dc\\:creator, creator")?.textContent || 'Wix Import',
           date: new Date(pubDate).toLocaleDateString(lang === 'tr' ? 'tr-TR' : 'ku-TR', { day: 'numeric', month: 'long', year: 'numeric' }),
           imageUrl: imageUrl,
@@ -226,7 +203,6 @@ export const AdminPanel = ({ onClose, onLogout, lang }: AdminPanelProps) => {
 
         await addNews(newsItem);
         
-        // Delay to respect Gemini API limits (15 RPM)
         if (i < items.length - 1) {
           await new Promise(resolve => setTimeout(resolve, 3000));
         }
@@ -265,7 +241,7 @@ export const AdminPanel = ({ onClose, onLogout, lang }: AdminPanelProps) => {
     return `${minutes} ${lang === 'tr' ? 'DK' : 'DEQ'}`;
   };
 
-  const handleImageUpload = async (e: ChangeEvent<HTMLInputElement>, target: 'main' | 'content') => {
+  const handleImageUpload = async (e: ChangeEvent<HTMLInputElement>, target: 'main' | 'content' | 'header-left' | 'header-right') => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -280,6 +256,7 @@ export const AdminPanel = ({ onClose, onLogout, lang }: AdminPanelProps) => {
     
     try {
       const { url: supabaseUrl, serviceKey } = getSupabaseConfig();
+      let publicUrl = '';
       
       if (supabaseUrl && serviceKey && !supabaseUrl.includes('your-project')) {
         const adminClient = createClient(supabaseUrl, serviceKey);
@@ -293,11 +270,11 @@ export const AdminPanel = ({ onClose, onLogout, lang }: AdminPanelProps) => {
 
         if (error) throw error;
 
-        const { data: { publicUrl } } = adminClient.storage
+        const { data: { publicUrl: url } } = adminClient.storage
           .from('news-images')
           .getPublicUrl(filePath);
-
-        updateFormDataWithUrl(publicUrl, target);
+        
+        publicUrl = url;
       } else {
         const formDataUpload = new FormData();
         formDataUpload.append('file', file);
@@ -313,7 +290,17 @@ export const AdminPanel = ({ onClose, onLogout, lang }: AdminPanelProps) => {
         }
 
         const data = await response.json();
-        updateFormDataWithUrl(data.url, target);
+        publicUrl = data.url;
+      }
+
+      if (target === 'header-left' || target === 'header-right') {
+        const newSettings = {
+          ...settings,
+          [target === 'header-left' ? 'leftImageUrl' : 'rightImageUrl']: publicUrl
+        };
+        await updateSettings(newSettings);
+      } else {
+        updateFormDataWithUrl(publicUrl, target);
       }
       
       setUploadStatus(lang === 'tr' ? 'Tamamlandı!' : 'Temam bû!');
@@ -327,6 +314,24 @@ export const AdminPanel = ({ onClose, onLogout, lang }: AdminPanelProps) => {
       setIsUploading(false);
       setUploadProgress(null);
       if (e.target) e.target.value = '';
+    }
+  };
+
+  const handleVideoAdd = () => {
+    const url = prompt(lang === 'tr' ? 'Video URL (YouTube veya direkt link):' : 'URL-ya Vîdyoyê (YouTube an lînka rasterast):');
+    if (!url) return;
+
+    const videoTag = `\n\n[VIDEO:${url}]\n\n`;
+    const currentContent = formData.content?.[activeLangTab] || '';
+
+    if (contentInputRef.current) {
+      const start = contentInputRef.current.selectionStart;
+      const end = contentInputRef.current.selectionEnd;
+      const newContent = currentContent.substring(0, start) + videoTag + currentContent.substring(end);
+      handleContentChange(newContent, activeLangTab);
+    } else {
+      const newContent = currentContent + videoTag;
+      handleContentChange(newContent, activeLangTab);
     }
   };
 
@@ -392,6 +397,16 @@ export const AdminPanel = ({ onClose, onLogout, lang }: AdminPanelProps) => {
     setIsAdding(true);
   };
 
+  const handleDelete = async (id: string) => {
+    if (confirm(t.deleteConfirm)) {
+      try {
+        await removeNews(id);
+      } catch (error) {
+        alert(lang === 'tr' ? 'Silme hatası' : 'Çewtiya jêbirinê');
+      }
+    }
+  };
+
   const t = UI_STRINGS[lang];
 
   return (
@@ -402,8 +417,26 @@ export const AdminPanel = ({ onClose, onLogout, lang }: AdminPanelProps) => {
         className="bg-white w-full max-w-5xl max-h-[90vh] rounded-2xl overflow-hidden flex flex-col shadow-2xl"
       >
         <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-6">
             <h2 className="text-2xl font-serif font-bold text-gray-900">{t.adminPanel}</h2>
+            
+            <div className="flex bg-gray-200/50 p-1 rounded-xl">
+              <button 
+                onClick={() => setActiveTab('news')}
+                className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${activeTab === 'news' ? 'bg-white text-brand-primary shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+              >
+                {lang === 'tr' ? 'HABERLER' : 'NÛÇE'}
+              </button>
+              <button 
+                onClick={() => setActiveTab('settings')}
+                className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${activeTab === 'settings' ? 'bg-white text-brand-primary shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+              >
+                {lang === 'tr' ? 'AYARLAR' : 'MÎHENG'}
+              </button>
+            </div>
+
+            <div className="h-6 w-px bg-gray-200 mx-2" />
+
             <button 
               onClick={() => setShowKeySettings(!showKeySettings)}
               className="flex items-center gap-2 px-4 py-2 bg-amber-50 text-amber-600 rounded-xl text-xs font-bold hover:bg-amber-600 hover:text-white transition-all border border-amber-100"
@@ -454,7 +487,88 @@ export const AdminPanel = ({ onClose, onLogout, lang }: AdminPanelProps) => {
             </div>
           )}
 
-          {isTranslatingAll && (
+          {activeTab === 'settings' ? (
+            <div className="max-w-3xl mx-auto space-y-8">
+              <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm">
+                <h3 className="text-xl font-bold mb-6 flex items-center gap-3">
+                  <ImageIcon className="text-brand-primary" />
+                  {lang === 'tr' ? 'Header (Üst Kısım) Görselleri' : 'Wêneyên Header (Beşa Jorîn)'}
+                </h3>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="space-y-4">
+                    <label className="block text-sm font-bold text-gray-700 uppercase tracking-widest">
+                      {lang === 'tr' ? 'Sol Logo / Görsel' : 'Logo / Wêneya Çepê'}
+                    </label>
+                    <div 
+                      onClick={() => leftHeaderInputRef.current?.click()}
+                      className="aspect-video w-full rounded-2xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center cursor-pointer hover:border-brand-primary hover:bg-brand-primary/5 transition-all overflow-hidden relative group"
+                    >
+                      {settings.leftImageUrl ? (
+                        <>
+                          <img src={settings.leftImageUrl} className="w-full h-full object-contain p-4" alt="Left Header" />
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                            <Upload className="text-white" />
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <ImageIcon className="text-gray-400 mb-2" size={32} />
+                          <span className="text-xs text-gray-500 font-bold">{lang === 'tr' ? 'GÖRSEL SEÇ' : 'WÊNE HILBIJÊRE'}</span>
+                        </>
+                      )}
+                    </div>
+                    <input 
+                      type="file" 
+                      ref={leftHeaderInputRef} 
+                      onChange={e => handleImageUpload(e, 'header-left')} 
+                      className="hidden" 
+                      accept="image/*"
+                    />
+                  </div>
+
+                  <div className="space-y-4">
+                    <label className="block text-sm font-bold text-gray-700 uppercase tracking-widest">
+                      {lang === 'tr' ? 'Sağ Logo / Görsel' : 'Logo / Wêneya Rastê'}
+                    </label>
+                    <div 
+                      onClick={() => rightHeaderInputRef.current?.click()}
+                      className="aspect-video w-full rounded-2xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center cursor-pointer hover:border-brand-primary hover:bg-brand-primary/5 transition-all overflow-hidden relative group"
+                    >
+                      {settings.rightImageUrl ? (
+                        <>
+                          <img src={settings.rightImageUrl} className="w-full h-full object-contain p-4" alt="Right Header" />
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                            <Upload className="text-white" />
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <ImageIcon className="text-gray-400 mb-2" size={32} />
+                          <span className="text-xs text-gray-500 font-bold">{lang === 'tr' ? 'GÖRSEL SEÇ' : 'WÊNE HILBIJÊRE'}</span>
+                        </>
+                      )}
+                    </div>
+                    <input 
+                      type="file" 
+                      ref={rightHeaderInputRef} 
+                      onChange={e => handleImageUpload(e, 'header-right')} 
+                      className="hidden" 
+                      accept="image/*"
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-8 p-4 bg-blue-50 rounded-xl border border-blue-100 text-xs text-blue-700">
+                  <p className="font-bold mb-1">{lang === 'tr' ? 'İpucu:' : 'Serişte:'}</p>
+                  <p>{lang === 'tr' 
+                    ? 'Header görselleri sitenin en üstünde, logonun sağında ve solunda görünür. Şeffaf arka planlı (PNG) görseller kullanmanız önerilir.' 
+                    : 'Wêneyên sernavê li serê malperê, li rast û çepê logoyê xuya dikin. Tê pêşniyar kirin ku wêneyên bi paşxaneya zelal (PNG) bikar bînin.'}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : isTranslatingAll ? (
             <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] z-50 flex flex-col items-center justify-center">
               <div className="bg-white p-6 rounded-2xl shadow-xl flex flex-col items-center gap-4 border border-gray-100">
                 <Loader2 size={40} className="animate-spin text-brand-accent" />
@@ -466,7 +580,7 @@ export const AdminPanel = ({ onClose, onLogout, lang }: AdminPanelProps) => {
                 </p>
               </div>
             </div>
-          )}
+          ) : null}
 
           {isImporting && (
             <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] z-50 flex flex-col items-center justify-center">
@@ -725,6 +839,14 @@ export const AdminPanel = ({ onClose, onLogout, lang }: AdminPanelProps) => {
                       <ImageIcon size={14} />
                       {lang === 'tr' ? 'Görsel Ekle' : 'Wêne Lê Zêde Bike'}
                     </button>
+                    <button 
+                      type="button"
+                      onClick={handleVideoAdd}
+                      className="flex items-center gap-2 text-xs font-bold text-brand-accent hover:text-brand-dark transition-colors"
+                    >
+                      <Video size={14} />
+                      {lang === 'tr' ? 'Video Ekle' : 'Vîdyo Lê Zêde Bike'}
+                    </button>
                   </div>
                 </div>
                 <textarea 
@@ -803,7 +925,7 @@ export const AdminPanel = ({ onClose, onLogout, lang }: AdminPanelProps) => {
                         <Edit2 size={20} />
                       </button>
                       <button 
-                        onClick={() => removeNews(item.id)}
+                        onClick={() => handleDelete(item.id)}
                         className="p-3 text-red-600 hover:bg-red-50 rounded-xl transition-colors"
                       >
                         <Trash2 size={20} />
