@@ -37,9 +37,10 @@ export const NewsDetail = ({ item, lang, onClose }: NewsDetailProps) => {
     const left = (window.innerWidth - width) / 2;
     const top = (window.innerHeight - height) / 2;
     
+    // Pencere adını '_blank' yaparak bazı tarayıcılardaki takılmaları önlemeye çalışıyoruz.
     const win = window.open(
       `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`, 
-      'facebook-share-dialog', 
+      '_blank', 
       `width=${width},height=${height},top=${top},left=${left},toolbar=no,location=no,directories=no,status=no,menubar=no,scrollbars=yes,resizable=yes`
     );
 
@@ -56,7 +57,7 @@ export const NewsDetail = ({ item, lang, onClose }: NewsDetailProps) => {
 
     const win = window.open(
       `https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(shareTitle)}`, 
-      'twitter-share-dialog', 
+      '_blank', 
       `width=${width},height=${height},top=${top},left=${left},toolbar=no,location=no,directories=no,status=no,menubar=no,scrollbars=yes,resizable=yes`
     );
 
