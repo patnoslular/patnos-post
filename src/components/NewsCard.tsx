@@ -10,13 +10,18 @@ interface NewsCardProps {
 
 export const NewsCard = ({ item, lang, featured = false }: NewsCardProps) => {
   const sourceLang = lang === 'tr' ? 'ku' : 'tr';
-  const displayTitle = item.title ? (item.title[lang] || item.title[sourceLang] || '') : '';
-  const displayExcerpt = item.excerpt ? (item.excerpt[lang] || item.excerpt[sourceLang] || '') : '';
+  
+  // Safety checks for nested objects
+  const title = item.title || { tr: '', ku: '' };
+  const excerpt = item.excerpt || { tr: '', ku: '' };
+  
+  const displayTitle = title[lang] || title[sourceLang] || '';
+  const displayExcerpt = excerpt[lang] || excerpt[sourceLang] || '';
   
   const categoryLabel = CATEGORIES.find(c => c.id === item.category)?.[lang] || item.category;
 
   return (
-    <Link to={`/news/${item.id}`} className="block">
+    <Link to={`/news/${item.id}?lang=${lang}`} className="block">
       <motion.article 
         initial={{ opacity: 0, y: 20 }}
         whileInView={{ opacity: 1, y: 0 }}
