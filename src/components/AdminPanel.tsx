@@ -93,6 +93,7 @@ export const AdminPanel = ({ onClose, onLogout, lang }: AdminPanelProps) => {
           : `Di dema wergerandinê de çewtiyek çêbû: ${error?.message || 'Çewtiya nenas'}`);
       }
 
+      // Fallback to copying original text even for single field
       alert(lang === 'tr' 
         ? "Çeviri yapılamadığı için orijinal metin kopyalandı." 
         : "Ji ber ku werger nehat kirin, deqa orjînal hat kopîkirin.");
@@ -124,12 +125,15 @@ export const AdminPanel = ({ onClose, onLogout, lang }: AdminPanelProps) => {
 
     setIsTranslatingAll(true);
     try {
+      // Switch to the target tab immediately so the user sees the progress
       setActiveLangTab(targetLang);
 
+      // We'll process fields and update state
       for (const field of fields) {
         const text = (formData[field] as any)?.[sourceLang];
         if (!text) continue;
         
+        // Copy to target optimistically so there's always a fallback
         setFormData(prev => ({
           ...prev,
           [field]: { ...(prev[field] || {}), [targetLang]: text } as any
@@ -145,8 +149,33 @@ export const AdminPanel = ({ onClose, onLogout, lang }: AdminPanelProps) => {
           }
         } catch (e: any) {
           console.error(`Translation failed for ${field}`, e);
+          const isQuotaError = e?.message?.includes('quota') || e?.message?.includes('429');
+          const isKeyMissing = e?.message === 'API_KEY_MISSING';
+          const isKeyInvalid = e?.message?.includes('API key not valid') || e?.message?.includes('API_KEY_INVALID');
+          const isSafetyBlock = e?.message?.startsWith('SAFETY_BLOCK');
+
+          if (isKeyMissing || isKeyInvalid) {
+            alert(lang === 'tr' 
+              ? "Sistem yapılandırma hatası: Geçersiz veya eksik API anahtarı." 
+              : "Çewtiya mîhengkirina pergalê: Mifteya API ya nederbasdar an kêm e.");
+            break;
+          } else if (isQuotaError) {
+             alert(lang === 'tr' 
+              ? "Yapay zeka kullanım kotası doldu. Lütfen 1 dakika bekleyip tekrar deneyin." 
+              : "Kotaya bikaranîna AI tije bûye. Ji kerema xwe 1 deqe bisekinin û dîsa biceribînin.");
+             break; // Stop translating other fields if quota is hit
+          } else if (isSafetyBlock) {
+             alert(lang === 'tr' 
+              ? `Hata (${field}): İçerik güvenlik filtresine takıldı.` 
+              : `Çewtî (${field}): Naverok di fîltreyê de asê ma.`);
+          } else {
+            alert(lang === 'tr' 
+              ? `Hata (${field}): ${e?.message || 'Bilinmeyen hata'}` 
+              : `Çewtî (${field}): ${e?.message || 'Çewtiya nenas'}`);
+          }
         }
         
+        // Increased delay to 1 second between fields to be safer with 15 RPM limit
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
       
@@ -186,6 +215,7 @@ export const AdminPanel = ({ onClose, onLogout, lang }: AdminPanelProps) => {
                         item.querySelector("media\\:content, content")?.getAttribute("url") || 
                         "https://picsum.photos/seed/wix/800/600";
 
+        // Translate to Kurdish
         const titleKu = await translateContent(titleTr, 'ku');
         const excerptKu = await translateContent(descriptionTr.substring(0, 200), 'ku');
         const contentKu = await translateContent(descriptionTr, 'ku');
@@ -194,7 +224,7 @@ export const AdminPanel = ({ onClose, onLogout, lang }: AdminPanelProps) => {
           title: { tr: titleTr, ku: titleKu },
           excerpt: { tr: descriptionTr.substring(0, 200), ku: excerptKu },
           content: { tr: descriptionTr, ku: contentKu },
-          category: 'general',
+          category: 'general', // Default category
           author: item.querySelector("dc\\:creator, creator")?.textContent || 'Wix Import',
           date: new Date(pubDate).toLocaleDateString(lang === 'tr' ? 'tr-TR' : 'ku-TR', { day: 'numeric', month: 'long', year: 'numeric' }),
           imageUrl: imageUrl,
@@ -203,6 +233,7 @@ export const AdminPanel = ({ onClose, onLogout, lang }: AdminPanelProps) => {
 
         await addNews(newsItem);
         
+        // Delay to respect Gemini API limits (15 RPM)
         if (i < items.length - 1) {
           await new Promise(resolve => setTimeout(resolve, 3000));
         }
