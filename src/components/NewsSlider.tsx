@@ -54,15 +54,20 @@ export const NewsSlider = ({ items, lang }: NewsSliderProps) => {
 
   const currentItem = items[currentIndex];
   const sourceLang = lang === 'tr' ? 'ku' : 'tr';
-  const displayTitle = currentItem.title ? (currentItem.title[lang] || currentItem.title[sourceLang] || '') : '';
-  const displayExcerpt = currentItem.excerpt ? (currentItem.excerpt[lang] || currentItem.excerpt[sourceLang] || '') : '';
+  
+  // Safety checks for nested objects
+  const title = currentItem.title || { tr: '', ku: '' };
+  const excerpt = currentItem.excerpt || { tr: '', ku: '' };
+
+  const displayTitle = title[lang] || title[sourceLang] || '';
+  const displayExcerpt = excerpt[lang] || excerpt[sourceLang] || '';
   
   const categoryLabel = CATEGORIES.find(c => c.id === currentItem.category)?.[lang] || currentItem.category;
 
   return (
     <div className="relative w-full bg-brand-primary overflow-hidden rounded-2xl shadow-2xl group h-[500px] md:h-[600px]">
       <AnimatePresence mode="wait">
-        <Link to={`/news/${currentItem.id}`} className="absolute inset-0 block">
+        <Link to={`/news/${currentItem.id}?lang=${lang}`} className="absolute inset-0 block">
           <motion.div
             key={currentIndex}
             initial={{ opacity: 0 }}
