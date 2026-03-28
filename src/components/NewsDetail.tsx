@@ -24,9 +24,8 @@ export const NewsDetail = ({ item, lang, onClose }: NewsDetailProps) => {
   const category = CATEGORIES.find(c => c.id === item.category)?.[lang] || item.category;
 
   const getShareUrl = () => {
-    // Facebook ve diğer platformlar için en temiz link formatını kullanıyoruz.
-    // Dil parametresini (?lang=...) kaldırıyoruz çünkü Facebook bazen bunu engelleyebiliyor.
-    return `${window.location.origin}/news/${item.id}`;
+    // Facebook ve diğer platformlar için dil parametresini ekliyoruz.
+    return `${window.location.origin}/news/${item.id}?lang=${lang}`;
   };
 
   const shareUrl = getShareUrl();
