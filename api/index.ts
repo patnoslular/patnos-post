@@ -1,53 +1,85 @@
+// api/index.ts - Tüm sunucu ve API mantığı
 import express from 'express';
-import { createServer as createViteServer } from 'vite';
 import path from 'path';
-import { fileURLToPath } from 'url';
+import fs from 'fs';
+import dotenv from 'dotenv';
+import { createClient } from '@supabase/supabase-js';
+import multer from 'multer';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+dotenv.config();
 
-async function startServer() {
-  const app = express();
-  const PORT = process.env.PORT || 3000;
+const app = express();
+const isProd = process.env.NODE_ENV === 'production' || process.env.VERCEL;
+const rootDir = process.cwd();
+const distPath = path.join(rootDir, 'dist');
 
-  app.use(express.json());
+// Middleware
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-  // API Routes
-  app.post('/api/login', (req, res) => {
+const storage = multer.memoryStorage();
+const upload = multer({ storage, limits: { fileSize: 10 * 1024 * 1024 } });
+
+// API Rotaları (ÖNCE TANIMLANDI)
+app.post('/api/login', (req, res) => {
+  try {
     const { password } = req.body;
-    
-    // Admin şifresini ortam değişkeninden al, yoksa varsayılanı kullan
-    const rawAdminPassword = process.env.ADMIN_PASSWORD;
-    const adminPassword = (rawAdminPassword && rawAdminPassword.trim()) || 'Mihriban04';
-    
-    if (password === adminPassword) {
-      res.json({ success: true });
-    } else {
-      // Hangi şifrenin beklendiğini loglayarak sorunu görmemizi sağlar
-      console.log(`[Giriş Hatası] Girilen: "${password}", Beklenen: "${adminPassword}"`);
-      res.status(401).json({ success: false, error: 'Geçersiz şifre' });
-    }
-  });
+    if (!password) return res.status(400).json({ success: false, error: 'Şifre gerekli' });
 
-  // Geliştirme ortamında Vite middleware
-  if (process.env.NODE_ENV !== 'production') {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: 'spa',
-    });
+    const adminPassword = 'Mihriban04';
+    const trimmedInput = password.trim();
+    
+    if (trimmedInput === adminPassword) {
+      return res.json({ success: true });
+    }
+    
+    const envPassword = process.env.ADMIN_PASSWORD;
+    if (envPassword && trimmedInput === envPassword.trim()) {
+      return res.json({ success: true });
+    }
+
+    return res.status(401).json({ success: false, error: 'Hatalı şifre.' });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: 'Sunucu hatası: ' + String(err) });
+  }
+});
+
+// Resim Yükleme API
+app.post('/api/upload', upload.single('file'), (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'Dosya seçilmedi' });
+  res.json({ 
+    success: true, 
+    url: `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`
+  });
+});
+
+// Vite ve Statik Dosya Yönetimi (SONRA TANIMLANDI)
+async function startServer() {
+  if (!isProd) {
+    const { createServer: createViteServer } = await import('vite');
+    const vite = await createViteServer({ server: { middlewareMode: true }, appType: 'spa' });
     app.use(vite.middlewares);
   } else {
-    // Production (Vercel vb.) ortamında statik dosyaları sun
-    const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
-    });
+    app.use('/assets', express.static(path.join(distPath, 'assets')));
+    app.use(express.static(distPath, { index: false }));
   }
 
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Sunucu http://0.0.0.0:${PORT} adresinde çalışıyor`);
+  app.get('*', async (req, res, next) => {
+    if (req.path.startsWith('/api/') || req.path.includes('.')) return next();
+    try {
+      const templatePath = !isProd ? path.resolve(rootDir, 'index.html') : path.resolve(distPath, 'index.html');
+      let template = fs.readFileSync(templatePath, 'utf-8');
+      if (!isProd) {
+        const { createServer } = await import('vite');
+        const v = await createServer({ server: { middlewareMode: true }, appType: 'spa' });
+        template = await v.transformIndexHtml(req.originalUrl, template);
+      }
+      res.status(200).set({ 'Content-Type': 'text/html' }).end(template);
+    } catch (e) { next(e); }
   });
+
+  app.listen(3000, '0.0.0.0', () => console.log('Server running on port 3000'));
 }
 
 startServer();
+export default app;
