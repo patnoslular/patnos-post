@@ -1,7 +1,7 @@
 import { useState, useRef, ChangeEvent } from 'react';
 import { motion } from 'motion/react';
 import { X, Plus, Edit2, Trash2, Save, Image as ImageIcon, Video, Upload, Loader2, Languages, Import, FileText, LogOut, Settings, Key } from 'lucide-react';
-import { NewsItem, CATEGORIES, Language, UI_STRINGS } from '../constants';
+import { NewsItem, CATEGORIES, Language, UI_STRINGS, HeaderSettings } from '../constants';
 import { useNews } from '../hooks/useNews';
 import { useSettings } from '../hooks/useSettings';
 import { supabase, getSupabaseConfig } from '../supabase';
@@ -38,6 +38,8 @@ export const AdminPanel = ({ onClose, onLogout, lang }: AdminPanelProps) => {
   const [importProgress, setImportProgress] = useState({ current: 0, total: 0 });
   const [manualApiKey, setManualApiKey] = useState(localStorage.getItem('GEMINI_API_KEY_OVERRIDE') || '');
   const [showKeySettings, setShowKeySettings] = useState(false);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
 
   const saveManualKey = () => {
     localStorage.setItem('GEMINI_API_KEY_OVERRIDE', manualApiKey);
@@ -91,10 +93,6 @@ export const AdminPanel = ({ onClose, onLogout, lang }: AdminPanelProps) => {
           : `Di dema wergerandinê de çewtiyek çêbû: ${error?.message || 'Çewtiya nenas'}`);
       }
 
-      alert(lang === 'tr' 
-        ? "Çeviri yapılamadığı için orijinal metin kopyalandı." 
-        : "Ji ber ku werger nehat kirin, deqa orjînal hat kopîkirin.");
-        
       setFormData(prev => ({
         ...prev,
         [field]: { ...(prev[field] || {}), [targetLang]: sourceText } as any
@@ -123,7 +121,6 @@ export const AdminPanel = ({ onClose, onLogout, lang }: AdminPanelProps) => {
     setIsTranslatingAll(true);
     try {
       setActiveLangTab(targetLang);
-
       for (const field of fields) {
         const text = (formData[field] as any)?.[sourceLang];
         if (!text) continue;
@@ -143,26 +140,9 @@ export const AdminPanel = ({ onClose, onLogout, lang }: AdminPanelProps) => {
           }
         } catch (e: any) {
           console.error(`Translation failed for ${field}`, e);
-          const isQuotaError = e?.message?.includes('quota') || e?.message?.includes('429');
-          const isKeyMissing = e?.message === 'API_KEY_MISSING';
-          const isKeyInvalid = e?.message?.includes('API key not valid') || e?.message?.includes('API_KEY_INVALID');
-          const isSafetyBlock = e?.message?.startsWith('SAFETY_BLOCK');
-
-          if (isKeyMissing || isKeyInvalid) {
-            alert(lang === 'tr' ? "Sistem yapılandırma hatası: Geçersiz veya eksik API anahtarı." : "Çewtiya mîhengkirina pergalê: Mifteya API ya nederbasdar an kêm e.");
-            break;
-          } else if (isQuotaError) {
-             alert(lang === 'tr' ? "Yapay zeka kullanım kotası doldu. Lütfen 1 dakika bekleyip tekrar deneyin." : "Kotaya bikaranîna AI tije bûye. Ji kerema xwe 1 deqe bisekinin û dîsa biceribînin.");
-             break; 
-          } else if (isSafetyBlock) {
-             alert(lang === 'tr' ? `Hata (${field}): İçerik güvenlik filtresine takıldı.` : `Çewtî (${field}): Naverok di fîltreyê de asê ma.`);
-          } else {
-            alert(lang === 'tr' ? `Hata (${field}): ${e?.message || 'Bilinmeyen hata'}` : `Çewtî (${field}): ${e?.message || 'Çewtiya nenas'}`);
-          }
         }
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
-      
     } catch (error) {
       console.error("Translate all error:", error);
     } finally {
@@ -229,6 +209,20 @@ export const AdminPanel = ({ onClose, onLogout, lang }: AdminPanelProps) => {
     } finally {
       setIsImporting(false);
       setImportProgress({ current: 0, total: 0 });
+    }
+  };
+
+  const copyFromOtherLang = (field: 'title' | 'excerpt' | 'content') => {
+    const sourceLang: Language = activeLangTab === 'tr' ? 'ku' : 'tr';
+    const targetLang: Language = activeLangTab;
+    const fieldData = formData[field] as any;
+    const sourceText = fieldData?.[sourceLang];
+
+    if (sourceText) {
+      setFormData(prev => ({
+        ...prev,
+        [field]: { ...(prev[field] || {}), [targetLang]: sourceText } as any
+      }));
     }
   };
 
@@ -417,6 +411,7 @@ export const AdminPanel = ({ onClose, onLogout, lang }: AdminPanelProps) => {
         <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
           <div className="flex items-center gap-6">
             <h2 className="text-2xl font-serif font-bold text-gray-900">{t.adminPanel}</h2>
+            
             <div className="flex bg-gray-200/50 p-1 rounded-xl">
               <button 
                 onClick={() => setActiveTab('news')}
@@ -431,7 +426,9 @@ export const AdminPanel = ({ onClose, onLogout, lang }: AdminPanelProps) => {
                 {lang === 'tr' ? 'AYARLAR' : 'MÎHENG'}
               </button>
             </div>
+
             <div className="h-6 w-px bg-gray-200 mx-2" />
+
             <button 
               onClick={() => setShowKeySettings(!showKeySettings)}
               className="flex items-center gap-2 px-4 py-2 bg-amber-50 text-amber-600 rounded-xl text-xs font-bold hover:bg-amber-600 hover:text-white transition-all border border-amber-100"
@@ -459,6 +456,11 @@ export const AdminPanel = ({ onClose, onLogout, lang }: AdminPanelProps) => {
                 <Key size={18} />
                 {lang === 'tr' ? 'Yapay Zeka (Gemini) API Anahtarı Ayarları' : 'Mîhengên Mifteya API ya AI (Gemini)'}
               </h2>
+              <p className="text-xs text-amber-700 mb-4">
+                {lang === 'tr' 
+                  ? 'Eğer otomatik çeviri çalışmıyorsa, API anahtarınızı buraya manuel olarak yapıştırabilirsiniz. Bu anahtar sadece bu tarayıcıda saklanır.' 
+                  : 'Heke wergera otomatîk nexebite, hûn dikarin mifteya API-ya xwe bi destan li vir bixin. Ev mifte tenê di vê gerokê de tê hilanîn.'}
+              </p>
               <div className="flex gap-3">
                 <input
                   type="password"
@@ -484,102 +486,442 @@ export const AdminPanel = ({ onClose, onLogout, lang }: AdminPanelProps) => {
                   <ImageIcon className="text-brand-primary" />
                   {lang === 'tr' ? 'Header (Üst Kısım) Görselleri' : 'Wêneyên Header (Beşa Jorîn)'}
                 </h3>
+                
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   <div className="space-y-4">
-                    <label className="block text-sm font-bold text-gray-700 uppercase tracking-widest">{lang === 'tr' ? 'Sol Logo / Görsel' : 'Logo / Wêneya Çepê'}</label>
-                    <div onClick={() => leftHeaderInputRef.current?.click()} className="aspect-video w-full rounded-2xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center cursor-pointer hover:border-brand-primary hover:bg-brand-primary/5 transition-all overflow-hidden relative group">
-                      {settings.leftImageUrl ? <img src={settings.leftImageUrl} className="w-full h-full object-contain p-4" alt="Left Header" /> : <span>{lang === 'tr' ? 'GÖRSEL SEÇ' : 'WÊNE HILBIJÊRE'}</span>}
+                    <label className="block text-sm font-bold text-gray-700 uppercase tracking-widest">
+                      {lang === 'tr' ? 'Sol Logo / Görsel' : 'Logo / Wêneya Çepê'}
+                    </label>
+                    <div 
+                      onClick={() => leftHeaderInputRef.current?.click()}
+                      className="aspect-video w-full rounded-2xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center cursor-pointer hover:border-brand-primary hover:bg-brand-primary/5 transition-all overflow-hidden relative group"
+                    >
+                      {settings.leftImageUrl ? (
+                        <>
+                          <img src={settings.leftImageUrl} className="w-full h-full object-contain p-4" alt="Left Header" />
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                            <Upload className="text-white" />
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <ImageIcon className="text-gray-400 mb-2" size={32} />
+                          <span className="text-xs text-gray-500 font-bold">{lang === 'tr' ? 'GÖRSEL SEÇ' : 'WÊNE HILBIJÊRE'}</span>
+                        </>
+                      )}
                     </div>
-                    <input type="file" ref={leftHeaderInputRef} onChange={e => handleImageUpload(e, 'header-left')} className="hidden" accept="image/*" />
+                    <input 
+                      type="file" 
+                      ref={leftHeaderInputRef} 
+                      onChange={e => handleImageUpload(e, 'header-left')} 
+                      className="hidden" 
+                      accept="image/*"
+                    />
                   </div>
+
                   <div className="space-y-4">
-                    <label className="block text-sm font-bold text-gray-700 uppercase tracking-widest">{lang === 'tr' ? 'Sağ Logo / Görsel' : 'Logo / Wêneya Rastê'}</label>
-                    <div onClick={() => rightHeaderInputRef.current?.click()} className="aspect-video w-full rounded-2xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center cursor-pointer hover:border-brand-primary hover:bg-brand-primary/5 transition-all overflow-hidden relative group">
-                      {settings.rightImageUrl ? <img src={settings.rightImageUrl} className="w-full h-full object-contain p-4" alt="Right Header" /> : <span>{lang === 'tr' ? 'GÖRSEL SEÇ' : 'WÊNE HILBIJÊRE'}</span>}
+                    <label className="block text-sm font-bold text-gray-700 uppercase tracking-widest">
+                      {lang === 'tr' ? 'Sağ Logo / Görsel' : 'Logo / Wêneya Rastê'}
+                    </label>
+                    <div 
+                      onClick={() => rightHeaderInputRef.current?.click()}
+                      className="aspect-video w-full rounded-2xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center cursor-pointer hover:border-brand-primary hover:bg-brand-primary/5 transition-all overflow-hidden relative group"
+                    >
+                      {settings.rightImageUrl ? (
+                        <>
+                          <img src={settings.rightImageUrl} className="w-full h-full object-contain p-4" alt="Right Header" />
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                            <Upload className="text-white" />
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <ImageIcon className="text-gray-400 mb-2" size={32} />
+                          <span className="text-xs text-gray-500 font-bold">{lang === 'tr' ? 'GÖRSEL SEÇ' : 'WÊNE HILBIJÊRE'}</span>
+                        </>
+                      )}
                     </div>
-                    <input type="file" ref={rightHeaderInputRef} onChange={e => handleImageUpload(e, 'header-right')} className="hidden" accept="image/*" />
+                    <input 
+                      type="file" 
+                      ref={rightHeaderInputRef} 
+                      onChange={e => handleImageUpload(e, 'header-right')} 
+                      className="hidden" 
+                      accept="image/*"
+                    />
                   </div>
                 </div>
+
+                <div className="mt-8 p-4 bg-blue-50 rounded-xl border border-blue-100 text-xs text-blue-700">
+                  <p className="font-bold mb-1">{lang === 'tr' ? 'İpucu:' : 'Serişte:'}</p>
+                  <p>{lang === 'tr' 
+                    ? 'Header görselleri sitenin en üstünde, logonun sağında ve solunda görünür. Şeffaf arka planlı (PNG) görseller kullanmanız önerilir.' 
+                    : 'Wêneyên sernavê li serê malperê, li rast û çepê logoyê xuya dikin. Tê pêşniyar kirin ku wêneyên bi paşxaneya zelal (PNG) bikar bînin.'}
+                  </p>
+                </div>
               </div>
+            </div>
+          ) : isTranslatingAll ? (
+            <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] z-50 flex flex-col items-center justify-center">
+              <div className="bg-white p-6 rounded-2xl shadow-xl flex flex-col items-center gap-4 border border-gray-100">
+                <Loader2 size={40} className="animate-spin text-brand-accent" />
+                <p className="text-sm font-bold text-gray-700 uppercase tracking-widest">
+                  {lang === 'tr' ? 'Yapay Zeka Çeviriyor...' : 'AI Wergerîne...'}
+                </p>
+                <p className="text-[10px] text-gray-400">
+                  {lang === 'tr' ? 'Lütfen bekleyin, bu işlem biraz zaman alabilir.' : 'Ji kerema xwe bisekinin, ev pêvajo dikare hinekî dem bigire.'}
+                </p>
+              </div>
+            </div>
+          ) : null}
+
+          {isImporting && (
+            <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] z-50 flex flex-col items-center justify-center">
+              <div className="bg-white p-8 rounded-2xl shadow-xl flex flex-col items-center gap-4 border border-gray-100 max-w-md w-full">
+                <Loader2 size={48} className="animate-spin text-brand-accent" />
+                <h4 className="text-lg font-bold text-gray-900 uppercase tracking-widest">
+                  {lang === 'tr' ? 'Wix Arşivi Aktarılıyor' : 'Arşîva Wix Tê Barkirin'}
+                </h4>
+                <div className="w-full bg-gray-100 h-3 rounded-full overflow-hidden mt-2">
+                  <motion.div 
+                    className="h-full bg-brand-accent"
+                    initial={{ width: 0 }}
+                    animate={{ width: `${(importProgress.current / importProgress.total) * 100}%` }}
+                  />
+                </div>
+                <p className="text-sm font-bold text-gray-600">
+                  {importProgress.current} / {importProgress.total}
+                </p>
+                <p className="text-[10px] text-gray-400 text-center uppercase tracking-tighter">
+                  {lang === 'tr' 
+                    ? 'Yapay zeka haberleri Kürtçeye çeviriyor ve kaydediyor. Lütfen pencereyi kapatmayın.' 
+                    : 'AI nûçeyan werdigerîne Kurdî û tomar dike. Ji kerema xwe pencereyê negirin.'}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {importMode ? (
+            <div className="space-y-6 max-w-3xl mx-auto">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-xl font-bold flex items-center gap-2">
+                  <Import size={24} className="text-brand-accent" />
+                  {lang === 'tr' ? 'Wix RSS İçe Aktar' : 'Wix RSS Import Bike'}
+                </h3>
+                <button 
+                  onClick={() => setImportMode(false)}
+                  className="text-sm font-bold text-gray-500 hover:text-brand-primary"
+                >
+                  {t.cancel}
+                </button>
+              </div>
+
+              <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 flex gap-4">
+                <div className="bg-blue-500 text-white p-2 rounded-lg h-fit">
+                  <FileText size={20} />
+                </div>
+                <div className="text-sm text-blue-800">
+                  <p className="font-bold mb-1">{lang === 'tr' ? 'Nasıl Yapılır?' : 'Çawa Tê Kirin?'}</p>
+                  <p>{lang === 'tr' 
+                    ? 'Wix sitenizdeki blog-feed.xml adresine gidin, tüm sayfayı kopyalayın ve aşağıdaki kutuya yapıştırın. Sistem haberleri otomatik olarak Kürtçeye çevirip kaydedecektir.' 
+                    : 'Herin navnîşana blog-feed.xml a li ser malpera xwe ya Wix, hemî rûpelê kopî bikin û li qutiya jêrîn bixin. Pergal dê nûçeyan bixweber wergerîne Kurdî û tomar bike.'}
+                  </p>
+                </div>
+              </div>
+
+              <textarea 
+                value={importXml}
+                onChange={e => setImportXml(e.target.value)}
+                className="w-full h-80 px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary outline-none transition-all font-mono text-xs"
+                placeholder={lang === 'tr' ? 'XML içeriğini buraya yapıştırın...' : 'Naveroka XML li vir bixin...'}
+              />
+
+              <button 
+                onClick={handleWixImport}
+                disabled={isImporting || !importXml}
+                className="w-full bg-brand-accent text-white py-4 rounded-xl font-bold hover:bg-brand-dark transition-all flex items-center justify-center gap-2 shadow-lg shadow-brand-accent/20 disabled:opacity-50"
+              >
+                {isImporting ? <Loader2 className="animate-spin" /> : <Import size={20} />}
+                {lang === 'tr' ? 'İÇE AKTARMAYI BAŞLAT' : 'IMPORTÊ DEST PÊ BIKE'}
+              </button>
             </div>
           ) : isAdding ? (
             <div className="space-y-6 max-w-3xl mx-auto">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-xl font-bold">{editingId ? t.editNews : t.addNews}</h3>
                 <div className="flex items-center gap-4">
-                  <button onClick={translateAll} disabled={isTranslatingAll} className="flex items-center gap-2 px-3 py-1.5 bg-brand-accent/10 text-brand-accent rounded-lg text-xs font-bold hover:bg-brand-accent hover:text-white transition-all disabled:opacity-50">
+                  <button 
+                    type="button"
+                    onClick={translateAll}
+                    disabled={isTranslatingAll}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-brand-accent/10 text-brand-accent rounded-lg text-xs font-bold hover:bg-brand-accent hover:text-white transition-all disabled:opacity-50"
+                  >
                     {isTranslatingAll ? <Loader2 size={14} className="animate-spin" /> : <Languages size={14} />}
-                    {lang === 'tr' ? 'DİĞER DİLE ÇEVİR' : 'WERGER ÎNE SER ZIMANÊ DIN'}
+                    {lang === 'tr' 
+                      ? (activeLangTab === 'tr' ? 'TÜRKÇEDEN KÜRTÇEYE ÇEVİR VE GEÇ' : 'KÜRTÇEDEN TÜRKÇEYE ÇEVİR VE GEÇ')
+                      : (activeLangTab === 'tr' ? 'JI TIRKÎ BO KURDÎ WERGERÎNE Û DERBAS BE' : 'JI KURDÎ BO TIRKÎ WERGERÎNE Û DERBAS BE')
+                    }
                   </button>
                   <div className="flex bg-gray-100 p-1 rounded-lg">
-                    {['tr', 'ku'].map((l) => (
-                      <button key={l} onClick={() => setActiveLangTab(l as Language)} className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${activeLangTab === l ? 'bg-white shadow-sm text-brand-primary' : 'text-gray-500'}`}>{l === 'tr' ? 'Türkçe' : 'Kurdî'}</button>
-                    ))}
+                    <button 
+                      onClick={() => setActiveLangTab('tr')}
+                      className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${activeLangTab === 'tr' ? 'bg-white shadow-sm text-brand-primary' : 'text-gray-500 hover:text-gray-700'}`}
+                    >
+                      Türkçe
+                    </button>
+                    <button 
+                      onClick={() => setActiveLangTab('ku')}
+                      className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${activeLangTab === 'ku' ? 'bg-white shadow-sm text-brand-primary' : 'text-gray-500 hover:text-gray-700'}`}
+                    >
+                      Kurdî
+                    </button>
                   </div>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-1">{t.title} ({activeLangTab === 'tr' ? 'Türkçe' : 'Kurdî'})</label>
-                  <input type="text" value={formData.title?.[activeLangTab] || ''} onChange={e => setFormData({...formData, title: { ...formData.title, [activeLangTab]: e.target.value } as any})} className="w-full px-4 py-3 rounded-xl border border-gray-200 outline-none" />
-                </div>
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-1">{t.category}</label>
-                  <select value={formData.category || ''} onChange={e => setFormData({...formData, category: e.target.value})} className="w-full px-4 py-3 rounded-xl border border-gray-200 outline-none">
-                    <option value="">Seçiniz</option>
-                    {CATEGORIES.map(cat => <option key={cat.id} value={cat.id}>{cat[lang]}</option>)}
-                  </select>
-                </div>
-              </div>
+                <div className="space-y-4">
+                  <div>
+                    <div className="flex justify-between items-center mb-1">
+                      <label className="block text-sm font-bold text-gray-700 uppercase tracking-wider">
+                        {t.title} ({activeLangTab === 'tr' ? 'Türkçe' : 'Kurdî'}) *
+                      </label>
+                      <div className="flex items-center gap-3">
+                        <button 
+                          type="button"
+                          onClick={() => copyFromOtherLang('title')}
+                          className="text-[10px] font-bold text-gray-400 hover:text-brand-primary transition-colors"
+                          title={lang === 'tr' ? 'Diğer dilden kopyala' : 'Ji zimanê din kopî bike'}
+                        >
+                          {lang === 'tr' ? 'KOPYALA' : 'KOPÎ BIKE'}
+                        </button>
+                        <button 
+                          type="button"
+                          onClick={() => autoTranslateField('title')}
+                          disabled={isAutoTranslating === 'title'}
+                          className="flex items-center gap-1 text-[10px] font-bold text-brand-accent hover:text-brand-primary transition-colors disabled:opacity-50"
+                        >
+                          {isAutoTranslating === 'title' ? <Loader2 size={10} className="animate-spin" /> : <Languages size={10} />}
+                          {lang === 'tr' ? 'AI İLE ÇEVİR' : 'BI AI WERGERÎNE'}
+                        </button>
+                      </div>
+                    </div>
+                    <input 
+                      type="text"
+                      value={formData.title?.[activeLangTab] || ''}
+                      onChange={e => setFormData({...formData, title: { ...formData.title, [activeLangTab]: e.target.value } as any})}
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary outline-none transition-all"
+                      placeholder={activeLangTab === 'tr' ? 'Haber başlığı...' : 'Sernavê nûçeyê...'}
+                    />
+                  </div>
 
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">{t.mainImage}</label>
-                <div onClick={() => mainFileInputRef.current?.click()} className="aspect-video bg-gray-50 rounded-xl border-2 border-dashed flex items-center justify-center cursor-pointer">
-                  {formData.imageUrl ? <img src={formData.imageUrl} className="w-full h-full object-cover rounded-xl" /> : <ImageIcon size={32} className="text-gray-300" />}
-                </div>
-                <input type="file" ref={mainFileInputRef} onChange={e => handleImageUpload(e, 'main')} className="hidden" accept="image/*" />
-              </div>
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-1 uppercase tracking-wider">{t.category} *</label>
+                    <select 
+                      value={formData.category || ''}
+                      onChange={e => setFormData({...formData, category: e.target.value})}
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary outline-none transition-all"
+                    >
+                      <option value="">{lang === 'tr' ? 'Kategori Seçin' : 'Kategorî Hilbijêre'}</option>
+                      {CATEGORIES.map(cat => (
+                        <option key={cat.id} value={cat.id}>{cat[lang]}</option>
+                      ))}
+                    </select>
+                  </div>
 
-              <div>
-                <div className="flex justify-between items-center mb-1">
-                  <label className="block text-sm font-bold text-gray-700">{t.content}</label>
-                  <div className="flex gap-2">
-                    <button type="button" onClick={() => fileInputRef.current?.click()} className="text-xs font-bold text-brand-primary flex items-center gap-1"><ImageIcon size={14} /> Foto</button>
-                    <button type="button" onClick={handleVideoAdd} className="text-xs font-bold text-brand-accent flex items-center gap-1"><Video size={14} /> Video</button>
+                  <div>
+                    <div className="flex justify-between items-center mb-1">
+                      <label className="block text-sm font-bold text-gray-700 uppercase tracking-wider">
+                        {t.excerpt} ({activeLangTab === 'tr' ? 'Türkçe' : 'Kurdî'})
+                      </label>
+                      <div className="flex items-center gap-3">
+                        <button 
+                          type="button"
+                          onClick={() => copyFromOtherLang('excerpt')}
+                          className="text-[10px] font-bold text-gray-400 hover:text-brand-primary transition-colors"
+                          title={lang === 'tr' ? 'Diğer dilden kopyala' : 'Ji zimanê din kopî bike'}
+                        >
+                          {lang === 'tr' ? 'KOPYALA' : 'KOPÎ BIKE'}
+                        </button>
+                        <button 
+                          type="button"
+                          onClick={() => autoTranslateField('excerpt')}
+                          disabled={isAutoTranslating === 'excerpt'}
+                          className="flex items-center gap-1 text-[10px] font-bold text-brand-accent hover:text-brand-primary transition-colors disabled:opacity-50"
+                        >
+                          {isAutoTranslating === 'excerpt' ? <Loader2 size={10} className="animate-spin" /> : <Languages size={10} />}
+                          {lang === 'tr' ? 'AI İLE ÇEVİR' : 'BI AI WERGERÎNE'}
+                        </button>
+                      </div>
+                    </div>
+                    <textarea 
+                      value={formData.excerpt?.[activeLangTab] || ''}
+                      onChange={e => setFormData({...formData, excerpt: { ...formData.excerpt, [activeLangTab]: e.target.value } as any})}
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary outline-none transition-all h-24 resize-none"
+                      placeholder={activeLangTab === 'tr' ? 'Kısa özet...' : 'Kurteya nûçeyê...'}
+                    />
                   </div>
                 </div>
-                <textarea ref={contentInputRef} value={formData.content?.[activeLangTab] || ''} onChange={e => handleContentChange(e.target.value, activeLangTab)} className="w-full px-4 py-3 rounded-xl border h-64 outline-none font-serif text-lg" />
-                <input type="file" ref={fileInputRef} onChange={e => handleImageUpload(e, 'content')} className="hidden" accept="image/*" />
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-1 uppercase tracking-wider">{t.mainImage} *</label>
+                    <div 
+                      onClick={() => mainFileInputRef.current?.click()}
+                      className="aspect-video w-full rounded-xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center cursor-pointer hover:border-brand-primary hover:bg-brand-primary/5 transition-all overflow-hidden relative group"
+                    >
+                      {formData.imageUrl ? (
+                        <>
+                          <img src={formData.imageUrl} className="w-full h-full object-cover" alt="Preview" />
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                            <Upload className="text-white" />
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <ImageIcon className="text-gray-400 mb-2" size={32} />
+                          <span className="text-sm text-gray-500">{lang === 'tr' ? 'Görsel Seç' : 'Wêne Hilbijêre'}</span>
+                        </>
+                      )}
+                      {isUploading && (
+                        <div className="absolute inset-0 bg-white/80 flex flex-col items-center justify-center">
+                          <Loader2 className="animate-spin text-brand-primary mb-2" />
+                          <span className="text-xs font-bold text-brand-primary">{uploadProgress}%</span>
+                        </div>
+                      )}
+                    </div>
+                    <input 
+                      type="file" 
+                      ref={mainFileInputRef} 
+                      onChange={e => handleImageUpload(e, 'main')} 
+                      className="hidden" 
+                      accept="image/*"
+                    />
+                  </div>
+                </div>
               </div>
 
-              <div className="flex gap-4">
-                <button onClick={handleSave} className="flex-1 bg-brand-primary text-white py-4 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg hover:bg-brand-dark transition-all">
-                  <Save size={20} /> {t.save}
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <label className="block text-sm font-bold text-gray-700 uppercase tracking-wider">
+                    {t.content} ({activeLangTab === 'tr' ? 'Türkçe' : 'Kurdî'})
+                  </label>
+                  <div className="flex gap-4">
+                    <button 
+                      type="button"
+                      onClick={() => copyFromOtherLang('content')}
+                      className="text-[10px] font-bold text-gray-400 hover:text-brand-primary transition-colors"
+                      title={lang === 'tr' ? 'Diğer dilden kopyala' : 'Ji zimanê din kopî bike'}
+                    >
+                      {lang === 'tr' ? 'KOPYALA' : 'KOPÎ BIKE'}
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={() => autoTranslateField('content')}
+                      disabled={isAutoTranslating === 'content'}
+                      className="flex items-center gap-1 text-[10px] font-bold text-brand-accent hover:text-brand-primary transition-colors disabled:opacity-50"
+                    >
+                      {isAutoTranslating === 'content' ? <Loader2 size={10} className="animate-spin" /> : <Languages size={10} />}
+                      {lang === 'tr' ? 'AI İLE ÇEVİR' : 'BI AI WERGERÎNE'}
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="flex items-center gap-2 text-xs font-bold text-brand-primary hover:text-brand-dark transition-colors"
+                    >
+                      <ImageIcon size={14} />
+                      {lang === 'tr' ? 'Görsel Ekle' : 'Wêne Lê Zêde Bike'}
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={handleVideoAdd}
+                      className="flex items-center gap-2 text-xs font-bold text-brand-accent hover:text-brand-dark transition-colors"
+                    >
+                      <Video size={14} />
+                      {lang === 'tr' ? 'Video Ekle' : 'Vîdyo Lê Zêde Bike'}
+                    </button>
+                  </div>
+                </div>
+                <textarea 
+                  ref={contentInputRef}
+                  value={formData.content?.[activeLangTab] || ''}
+                  onChange={e => handleContentChange(e.target.value, activeLangTab)}
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary outline-none transition-all h-64 font-serif text-lg"
+                  placeholder={activeLangTab === 'tr' ? 'Haber içeriği...' : 'Naveroka nûçeyê...'}
+                />
+                <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  onChange={e => handleImageUpload(e, 'content')} 
+                  className="hidden" 
+                  accept="image/*"
+                />
+              </div>
+
+              <div className="flex gap-4 pt-4">
+                <button 
+                  onClick={handleSave}
+                  className="flex-1 bg-brand-primary text-white py-4 rounded-xl font-bold hover:bg-brand-dark transition-all flex items-center justify-center gap-2 shadow-lg shadow-brand-primary/20"
+                >
+                  <Save size={20} />
+                  {t.save}
                 </button>
-                <button onClick={resetForm} className="px-8 py-4 text-gray-500 font-bold hover:bg-gray-100 rounded-xl">İPTAL</button>
+                <button 
+                  onClick={resetForm}
+                  className="px-8 py-4 rounded-xl font-bold text-gray-500 hover:bg-gray-100 transition-all"
+                >
+                  {t.cancel}
+                </button>
               </div>
             </div>
           ) : (
             <div className="space-y-4">
               <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xl font-bold">{t.newsList}</h3>
+                <h3 className="text-xl font-bold text-gray-900">{t.newsList}</h3>
                 <div className="flex gap-3">
-                  <button onClick={() => setImportMode(true)} className="px-4 py-2 border rounded-xl flex items-center gap-2 font-bold hover:bg-gray-50 transition-all"><Import size={18} /> Wix'ten Aktar</button>
-                  <button onClick={() => setIsAdding(true)} className="bg-brand-primary text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-brand-dark transition-all"><Plus size={20} /> {t.addNews}</button>
+                  <button 
+                    onClick={() => setImportMode(true)}
+                    className="bg-white border border-gray-200 text-gray-700 px-6 py-3 rounded-xl font-bold hover:bg-gray-50 transition-all flex items-center gap-2 shadow-sm"
+                  >
+                    <Import size={20} className="text-brand-accent" />
+                    {lang === 'tr' ? 'Wix\'ten Aktar' : 'Ji Wixê Aktar'}
+                  </button>
+                  <button 
+                    onClick={() => setIsAdding(true)}
+                    className="bg-brand-primary text-white px-6 py-3 rounded-xl font-bold hover:bg-brand-dark transition-all flex items-center gap-2 shadow-lg shadow-brand-primary/20"
+                  >
+                    <Plus size={20} />
+                    {t.addNews}
+                  </button>
                 </div>
               </div>
-              <div className="grid gap-4">
+              
+              <div className="grid grid-cols-1 gap-4">
                 {news.map(item => (
-                  <div key={item.id} className="bg-gray-50 p-4 rounded-2xl flex items-center gap-4 hover:bg-white hover:shadow-sm border border-transparent hover:border-gray-100 transition-all">
-                    <img src={item.imageUrl} className="w-20 h-20 rounded-xl object-cover" />
+                  <div key={item.id} className="bg-gray-50 p-4 rounded-2xl flex items-center gap-6 group hover:bg-white hover:shadow-md transition-all border border-transparent hover:border-gray-100">
+                    <img src={item.imageUrl} className="w-24 h-24 rounded-xl object-cover shadow-sm" alt="" />
                     <div className="flex-1 min-w-0">
-                      <h4 className="font-bold truncate">{item.title?.[lang] || item.title?.['tr']}</h4>
-                      <p className="text-xs text-gray-400 font-bold uppercase">{CATEGORIES.find(c => c.id === item.category)?.[lang]}</p>
+                      <h4 className="font-bold text-gray-900 truncate text-lg">
+                        {item.title ? (item.title[lang] || item.title['tr']) : 'Başlıksız'}
+                      </h4>
+                      <p className="text-sm text-gray-500 mt-1 flex items-center gap-2 uppercase tracking-wider font-bold">
+                        <span className="text-brand-accent">{CATEGORIES.find(c => c.id === item.category)?.[lang]}</span>
+                        <span className="w-1 h-1 bg-gray-300 rounded-full" />
+                        <span>{item.readTime}</span>
+                      </p>
                     </div>
-                    <div className="flex gap-1">
-                      <button onClick={() => startEditing(item)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"><Edit2 size={18} /></button>
-                      <button onClick={() => handleDelete(item.id)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg"><Trash2 size={18} /></button>
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={() => startEditing(item)}
+                        className="p-3 text-blue-600 hover:bg-blue-50 rounded-xl transition-colors"
+                      >
+                        <Edit2 size={20} />
+                      </button>
+                      <button 
+                        onClick={() => handleDelete(item.id)}
+                        className="p-3 text-red-600 hover:bg-red-50 rounded-xl transition-colors"
+                      >
+                        <Trash2 size={20} />
+                      </button>
                     </div>
                   </div>
                 ))}
