@@ -1,66 +1,53 @@
 import express from 'express';
+import { createServer as createViteServer } from 'vite';
 import path from 'path';
-import fs from 'fs';
+import { fileURLToPath } from 'url';
 
-const app = express();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-// Admin girişi için şifre kontrolü (Eğer backend taraflı şifre isterseniz burası kullanılabilir)
-const ADMIN_PASSWORD = process.env.VITE_ADMIN_PASSWORD || 'patnos04';
+async function startServer() {
+  const app = express();
+  const PORT = process.env.PORT || 3000;
 
-app.get('/api/check-password', (req, res) => {
-  const { password } = req.query;
-  if (password === ADMIN_PASSWORD) {
-    res.json({ success: true });
-  } else {
-    res.json({ success: false });
-  }
-});
+  app.use(express.json());
 
-// Haber detayları için Meta Tag üretici - SOSYAL MEDYA PAYLAŞIMI İÇİN KRİTİK
-app.get(['/news/:id', '/news/:id/*'], (req, res) => {
-  const filePath = path.resolve(__dirname, '../dist/index.html');
-  
-  fs.readFile(filePath, 'utf8', (err, data) => {
-    if (err) {
-      return res.status(500).send('Error loading index.html');
+  // API Routes
+  app.post('/api/login', (req, res) => {
+    const { password } = req.body;
+    
+    // Admin şifresini ortam değişkeninden al, yoksa varsayılanı kullan
+    const rawAdminPassword = process.env.ADMIN_PASSWORD;
+    const adminPassword = (rawAdminPassword && rawAdminPassword.trim()) || 'Mihriban04';
+    
+    if (password === adminPassword) {
+      res.json({ success: true });
+    } else {
+      // Hangi şifrenin beklendiğini loglayarak sorunu görmemizi sağlar
+      console.log(`[Giriş Hatası] Girilen: "${password}", Beklenen: "${adminPassword}"`);
+      res.status(401).json({ success: false, error: 'Geçersiz şifre' });
     }
-
-    const { id } = req.params;
-    const lang = (req.query.lang as string) || 'tr';
-    
-    // Not: Normalde burada bir veritabanından (örneğin Firebase) haber verilerini çekmek gerekir.
-    // Ancak istemci tarafında da çalıştığı için şimdilik temel bir yapı kuruyoruz.
-    // Gerçek bir SEO iyileştirmesi için sunucu tarafında haberi çekip meta etiketlerini doldurmalıyız.
-    
-    const path = req.path;
-    const parts = path.split('/').filter(Boolean);
-    let newsId = (parts[0] === 'news' && parts[1]) ? parts[1].split(/[?#]/)[0] : null;
-    
-    let title = lang === 'ku' ? "The Patnos Post | Li pey rastiyê, li ser şopa pêşerojê" : "The Patnos Post | Gerçeğin Peşinde, Geleceğin İzinde";
-    let description = lang === 'ku' ? "Nûçeyên herî dawî, naveroka jiyan û çandê ji Patnos û derdora wê." : "Patnos ve çevresinden en güncel haberler, yaşam ve kültür içerikleri.";
-    let image = "https://static.wixstatic.com/media/7e2174_e230755889444a418254ba8ec11e24f7~mv2.png";
-    let locale = lang === 'ku' ? 'ku_TR' : 'tr_TR';
-    
-    // Meta etiketlerini değiştir
-    let result = data
-      .replace(/<title>.*?<\/title>/g, `<title>${title}</title>`)
-      .replace(/<meta name="description".*?>/g, `<meta name="description" content="${description}">`)
-      .replace(/<meta property="og:title".*?>/g, `<meta property="og:title" content="${title}">`)
-      .replace(/<meta property="og:description".*?>/g, `<meta property="og:description" content="${description}">`)
-      .replace(/<meta property="og:image".*?>/g, `<meta property="og:image" content="${image}">`)
-      .replace(/<meta property="og:url".*?>/g, `<meta property="og:url" content="${req.protocol}://${req.get('host')}${req.originalUrl}">`)
-      .replace(/<meta property="og:locale".*?>/g, `<meta property="og:locale" content="${locale}">`);
-
-    res.send(result);
   });
-});
 
-// Statik dosyaları servis et
-app.use(express.static(path.join(__dirname, '../dist')));
+  // Geliştirme ortamında Vite middleware
+  if (process.env.NODE_ENV !== 'production') {
+    const vite = await createViteServer({
+      server: { middlewareMode: true },
+      appType: 'spa',
+    });
+    app.use(vite.middlewares);
+  } else {
+    // Production (Vercel vb.) ortamında statik dosyaları sun
+    const distPath = path.join(process.cwd(), 'dist');
+    app.use(express.static(distPath));
+    app.get('*', (req, res) => {
+      res.sendFile(path.join(distPath, 'index.html'));
+    });
+  }
 
-// SPA rotası
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../dist/index.html'));
-});
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Sunucu http://0.0.0.0:${PORT} adresinde çalışıyor`);
+  });
+}
 
-export default app;
+startServer();
