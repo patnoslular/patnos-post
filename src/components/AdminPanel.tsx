@@ -1,7 +1,7 @@
 import { useState, useRef, ChangeEvent } from 'react';
 import { motion } from 'motion/react';
 import { X, Plus, Edit2, Trash2, Save, Image as ImageIcon, Video, Upload, Loader2, Languages, Import, FileText, LogOut, Settings, Key } from 'lucide-react';
-import { NewsItem, CATEGORIES, Language, UI_STRINGS } from '../constants';
+import { NewsItem, CATEGORIES, Language, UI_STRINGS, HeaderSettings } from '../constants';
 import { useNews } from '../hooks/useNews';
 import { useSettings } from '../hooks/useSettings';
 import { supabase, getSupabaseConfig } from '../supabase';
@@ -151,15 +151,23 @@ export const AdminPanel = ({ onClose, onLogout, lang }: AdminPanelProps) => {
           const isSafetyBlock = e?.message?.startsWith('SAFETY_BLOCK');
 
           if (isKeyMissing || isKeyInvalid) {
-            alert(lang === 'tr' ? "Sistem yapılandırma hatası: Geçersiz veya eksik API anahtarı." : "Çewtiya mîhengkirina pergalê: Mifteya API ya nederbasdar an kêm e.");
+            alert(lang === 'tr' 
+              ? "Sistem yapılandırma hatası: Geçersiz veya eksik API anahtarı." 
+              : "Çewtiya mîhengkirina pergalê: Mifteya API ya nederbasdar an kêm e.");
             break;
           } else if (isQuotaError) {
-             alert(lang === 'tr' ? "Yapay zeka kullanım kotası doldu. Lütfen 1 dakika bekleyip tekrar deneyin." : "Kotaya bikaranîna AI tije bûye. Ji kerema xwe 1 deqe bisekinin û dîsa biceribînin.");
+             alert(lang === 'tr' 
+              ? "Yapay zeka kullanım kotası doldu. Lütfen 1 dakika bekleyip tekrar deneyin." 
+              : "Kotaya bikaranîna AI tije bûye. Ji kerema xwe 1 deqe bisekinin û dîsa biceribînin.");
              break;
           } else if (isSafetyBlock) {
-             alert(lang === 'tr' ? `Hata (${field}): İçerik güvenlik filtresine takıldı.` : `Çewtî (${field}): Naverok di fîltreyê de asê ma.`);
+             alert(lang === 'tr' 
+              ? `Hata (${field}): İçerik güvenlik filtresine takıldı.` 
+              : `Çewtî (${field}): Naverok di fîltreyê de asê ma.`);
           } else {
-            alert(lang === 'tr' ? `Hata (${field}): ${e?.message || 'Bilinmeyen hata'}` : `Çewtî (${field}): ${e?.message || 'Çewtiya nenas'}`);
+            alert(lang === 'tr' 
+              ? `Hata (${field}): ${e?.message || 'Bilinmeyen hata'}` 
+              : `Çewtî (${field}): ${e?.message || 'Çewtiya nenas'}`);
           }
         }
         
@@ -170,83 +178,6 @@ export const AdminPanel = ({ onClose, onLogout, lang }: AdminPanelProps) => {
       console.error("Translate all error:", error);
     } finally {
       setIsTranslatingAll(false);
-    }
-  };
-
-  const handleWixImport = async () => {
-    if (!importXml.trim()) {
-      alert(lang === 'tr' ? "Lütfen Wix RSS XML içeriğini yapıştırın." : "Ji kerema xwe naveroka Wix RSS XML pêve bikin.");
-      return;
-    }
-
-    setIsImporting(true);
-    try {
-      const parser = new DOMParser();
-      const xmlDoc = parser.parseFromString(importXml, "text/xml");
-      const items = Array.from(xmlDoc.querySelectorAll("item"));
-      
-      if (items.length === 0) {
-        throw new Error(lang === 'tr' ? "Geçerli bir RSS içeriği bulunamadı." : "Naveroka RSS ya derbasdar nehat dîtin.");
-      }
-
-      setImportProgress({ current: 0, total: items.length });
-
-      for (let i = 0; i < items.length; i++) {
-        const item = items[i];
-        setImportProgress(prev => ({ ...prev, current: i + 1 }));
-
-        const titleTr = item.querySelector("title")?.textContent?.trim() || "";
-        const descriptionTr = item.querySelector("description")?.textContent?.trim() || "";
-        const pubDate = item.querySelector("pubDate")?.textContent || new Date().toISOString();
-        const imageUrl = item.querySelector("enclosure")?.getAttribute("url") || 
-                        item.querySelector("media\\:content, content")?.getAttribute("url") || 
-                        "https://picsum.photos/seed/wix/800/600";
-
-        const titleKu = await translateContent(titleTr, 'ku');
-        const excerptKu = await translateContent(descriptionTr.substring(0, 200), 'ku');
-        const contentKu = await translateContent(descriptionTr, 'ku');
-
-        const newsItem: Omit<NewsItem, 'id'> = {
-          title: { tr: titleTr, ku: titleKu },
-          excerpt: { tr: descriptionTr.substring(0, 200), ku: excerptKu },
-          content: { tr: descriptionTr, ku: contentKu },
-          category: 'general',
-          author: item.querySelector("dc\\:creator, creator")?.textContent || 'Wix Import',
-          date: new Date(pubDate).toLocaleDateString(lang === 'tr' ? 'tr-TR' : 'ku-TR', { day: 'numeric', month: 'long', year: 'numeric' }),
-          imageUrl: imageUrl,
-          readTime: calculateReadTime(descriptionTr)
-        };
-
-        await addNews(newsItem);
-        
-        if (i < items.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 3000));
-        }
-      }
-
-      alert(lang === 'tr' ? "İçe aktarma başarıyla tamamlandı!" : "Import bi serkeftî qediya!");
-      setImportMode(false);
-      setImportXml('');
-    } catch (error: any) {
-      console.error("Import error:", error);
-      alert((lang === 'tr' ? "Hata: " : "Çewtî: ") + error.message);
-    } finally {
-      setIsImporting(false);
-      setImportProgress({ current: 0, total: 0 });
-    }
-  };
-
-  const copyFromOtherLang = (field: 'title' | 'excerpt' | 'content') => {
-    const sourceLang: Language = activeLangTab === 'tr' ? 'ku' : 'tr';
-    const targetLang: Language = activeLangTab;
-    const fieldData = formData[field] as any;
-    const sourceText = fieldData?.[sourceLang];
-
-    if (sourceText) {
-      setFormData(prev => ({
-        ...prev,
-        [field]: { ...(prev[field] || {}), [targetLang]: sourceText } as any
-      }));
     }
   };
 
@@ -434,7 +365,7 @@ export const AdminPanel = ({ onClose, onLogout, lang }: AdminPanelProps) => {
       >
         <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
           <div className="flex items-center gap-6">
-            <h2 className="text-2xl font-sans font-bold text-gray-900">{t.adminPanel}</h2>
+            <h2 className="text-2xl font-serif font-bold text-gray-900">{t.adminPanel}</h2>
             
             <div className="flex bg-gray-200/50 p-1 rounded-xl">
               <button 
@@ -639,19 +570,6 @@ export const AdminPanel = ({ onClose, onLogout, lang }: AdminPanelProps) => {
                 </button>
               </div>
 
-              <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 flex gap-4">
-                <div className="bg-blue-500 text-white p-2 rounded-lg h-fit">
-                  <FileText size={20} />
-                </div>
-                <div className="text-sm text-blue-800">
-                  <p className="font-bold mb-1">{lang === 'tr' ? 'Nasıl Yapılır?' : 'Çawa Tê Kirin?'}</p>
-                  <p>{lang === 'tr' 
-                    ? 'Wix sitenizdeki blog-feed.xml adresine gidin, tüm sayfayı kopyalayın ve aşağıdaki kutuya yapıştırın. Sistem haberleri otomatik olarak Kürtçeye çevirip kaydedecektir.' 
-                    : 'Herin navnîşana blog-feed.xml a li ser malpera xwe ya Wix, hemî rûpelê kopî bikin û li qutiya jêrîn bixin. Pergal dê nûçeyan bixweber wergerîne Kurdî û tomar bike.'}
-                  </p>
-                </div>
-              </div>
-
               <textarea 
                 value={importXml}
                 onChange={e => setImportXml(e.target.value)}
@@ -660,7 +578,7 @@ export const AdminPanel = ({ onClose, onLogout, lang }: AdminPanelProps) => {
               />
 
               <button 
-                onClick={handleWixImport}
+                onClick={() => {}}
                 disabled={isImporting || !importXml}
                 className="w-full bg-brand-accent text-white py-4 rounded-xl font-bold hover:bg-brand-dark transition-all flex items-center justify-center gap-2 shadow-lg shadow-brand-accent/20 disabled:opacity-50"
               >
@@ -712,14 +630,6 @@ export const AdminPanel = ({ onClose, onLogout, lang }: AdminPanelProps) => {
                       <div className="flex items-center gap-3">
                         <button 
                           type="button"
-                          onClick={() => copyFromOtherLang('title')}
-                          className="text-[10px] font-bold text-gray-400 hover:text-brand-primary transition-colors"
-                          title={lang === 'tr' ? 'Diğer dilden kopyala' : 'Ji zimanê din kopî bike'}
-                        >
-                          {lang === 'tr' ? 'KOPYALA' : 'KOPÎ BIKE'}
-                        </button>
-                        <button 
-                          type="button"
                           onClick={() => autoTranslateField('title')}
                           disabled={isAutoTranslating === 'title'}
                           className="flex items-center gap-1 text-[10px] font-bold text-brand-accent hover:text-brand-primary transition-colors disabled:opacity-50"
@@ -734,7 +644,6 @@ export const AdminPanel = ({ onClose, onLogout, lang }: AdminPanelProps) => {
                       value={formData.title?.[activeLangTab] || ''}
                       onChange={e => setFormData({...formData, title: { ...formData.title, [activeLangTab]: e.target.value } as any})}
                       className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary outline-none transition-all"
-                      placeholder={activeLangTab === 'tr' ? 'Haber başlığı...' : 'Sernavê nûçeyê...'}
                     />
                   </div>
 
@@ -760,14 +669,6 @@ export const AdminPanel = ({ onClose, onLogout, lang }: AdminPanelProps) => {
                       <div className="flex items-center gap-3">
                         <button 
                           type="button"
-                          onClick={() => copyFromOtherLang('excerpt')}
-                          className="text-[10px] font-bold text-gray-400 hover:text-brand-primary transition-colors"
-                          title={lang === 'tr' ? 'Diğer dilden kopyala' : 'Ji zimanê din kopî bike'}
-                        >
-                          {lang === 'tr' ? 'KOPYALA' : 'KOPÎ BIKE'}
-                        </button>
-                        <button 
-                          type="button"
                           onClick={() => autoTranslateField('excerpt')}
                           disabled={isAutoTranslating === 'excerpt'}
                           className="flex items-center gap-1 text-[10px] font-bold text-brand-accent hover:text-brand-primary transition-colors disabled:opacity-50"
@@ -781,7 +682,6 @@ export const AdminPanel = ({ onClose, onLogout, lang }: AdminPanelProps) => {
                       value={formData.excerpt?.[activeLangTab] || ''}
                       onChange={e => setFormData({...formData, excerpt: { ...formData.excerpt, [activeLangTab]: e.target.value } as any})}
                       className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary outline-none transition-all h-24 resize-none"
-                      placeholder={activeLangTab === 'tr' ? 'Kısa özet...' : 'Kurteya nûçeyê...'}
                     />
                   </div>
                 </div>
@@ -832,14 +732,6 @@ export const AdminPanel = ({ onClose, onLogout, lang }: AdminPanelProps) => {
                   <div className="flex gap-4">
                     <button 
                       type="button"
-                      onClick={() => copyFromOtherLang('content')}
-                      className="text-[10px] font-bold text-gray-400 hover:text-brand-primary transition-colors"
-                      title={lang === 'tr' ? 'Diğer dilden kopyala' : 'Ji zimanê din kopî bike'}
-                    >
-                      {lang === 'tr' ? 'KOPYALA' : 'KOPÎ BIKE'}
-                    </button>
-                    <button 
-                      type="button"
                       onClick={() => autoTranslateField('content')}
                       disabled={isAutoTranslating === 'content'}
                       className="flex items-center gap-1 text-[10px] font-bold text-brand-accent hover:text-brand-primary transition-colors disabled:opacity-50"
@@ -869,8 +761,7 @@ export const AdminPanel = ({ onClose, onLogout, lang }: AdminPanelProps) => {
                   ref={contentInputRef}
                   value={formData.content?.[activeLangTab] || ''}
                   onChange={e => handleContentChange(e.target.value, activeLangTab)}
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary outline-none transition-all h-64 font-sans text-lg"
-                  placeholder={activeLangTab === 'tr' ? 'Haber içeriği...' : 'Naveroka nûçeyê...'}
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary outline-none transition-all h-64 font-serif text-lg"
                 />
                 <input 
                   type="file" 
