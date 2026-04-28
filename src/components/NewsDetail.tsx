@@ -1,93 +1,70 @@
+import { useEffect } from 'react';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { X, Calendar, User, Clock, Share2, Facebook, Twitter, Link as LinkIcon } from 'lucide-react';
-import { NewsItem, CATEGORIES, Language, UI_STRINGS } from '../constants';
+import { Calendar, Tag, Share2, Facebook, Twitter, MessageCircle, ArrowLeft } from 'lucide-react';
+import { CATEGORIES, Language } from '../constants';
+import { useNews } from '../hooks/useNews';
 
 interface NewsDetailProps {
-  item: NewsItem;
   lang: Language;
-  onClose: () => void;
 }
 
-export const NewsDetail = ({ item, lang, onClose }: NewsDetailProps) => {
-  const sourceLang = lang === 'tr' ? 'ku' : 'tr';
+export function NewsDetail({ lang: propLang }: NewsDetailProps) {
+  const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
+  const lang = (searchParams.get('lang') as Language) || propLang;
   
-  // Safety checks for nested objects
-  const title = item.title || { tr: '', ku: '' };
-  const excerpt = item.excerpt || { tr: '', ku: '' };
-  const content = item.content || { tr: '', ku: '' };
+  const { news } = useNews();
+  const item = news.find(n => n.id === id);
 
-  const displayTitle = title[lang] || title[sourceLang] || '';
-  const displayExcerpt = excerpt[lang] || excerpt[sourceLang] || '';
-  const displayContent = content[lang] || content[sourceLang] || '';
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [id]);
 
-  const t = UI_STRINGS[lang];
+  if (!item) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] px-4">
+        <h2 className="text-2xl font-bold mb-4">Haber bulunamadı / Nûçe nehat dîtin</h2>
+        <button 
+          onClick={() => window.history.back()}
+          className="flex items-center gap-2 text-brand-accent font-bold"
+        >
+          <ArrowLeft size={20} /> Geri Dön / Vegere
+        </button>
+      </div>
+    );
+  }
+
+  const title = item.title[lang] || item.title[lang === 'tr' ? 'ku' : 'tr'];
+  const content = item.content[lang] || item.content[lang === 'tr' ? 'ku' : 'tr'];
   const category = CATEGORIES.find(c => c.id === item.category)?.[lang] || item.category;
 
   const getShareUrl = () => {
-    // Facebook ve diğer platformlar için dil parametresini ekliyoruz.
     return `${window.location.origin}/news/${item.id}?lang=${lang}`;
   };
 
   const shareUrl = getShareUrl();
-  const shareTitle = displayTitle;
 
-  const handleFacebookShare = () => {
-    const width = 600;
-    const height = 700;
-    const left = (window.innerWidth - width) / 2;
-    const top = (window.innerHeight - height) / 2;
-    
-    // Pencere adını '_blank' yaparak bazı tarayıcılardaki takılmaları önlemeye çalışıyoruz.
-    const win = window.open(
-      `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`, 
-      '_blank', 
-      `width=${width},height=${height},top=${top},left=${left},toolbar=no,location=no,directories=no,status=no,menubar=no,scrollbars=yes,resizable=yes`
-    );
-
-    if (!win) {
-      alert(lang === 'tr' ? 'Lütfen pop-up engelleyicinizi kapatın.' : 'Ji kerema xwe astengkerê pop-upê bigirin.');
+  const shareActions = [
+    { 
+      name: 'Facebook', 
+      icon: <Facebook size={20} />, 
+      color: 'bg-[#1877F2]',
+      handler: () => window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`, '_blank')
+    },
+    { 
+      name: 'X', 
+      icon: <Twitter size={20} />, 
+      color: 'bg-black',
+      handler: () => window.open(`https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(title)}`, '_blank')
+    },
+    { 
+      name: 'WhatsApp', 
+      icon: <MessageCircle size={20} />, 
+      color: 'bg-[#25D366]',
+      handler: () => window.open(`https://wa.me/?text=${encodeURIComponent(title + ' ' + shareUrl)}`, '_blank')
     }
-  };
-
-  const handleTwitterShare = () => {
-    const width = 600;
-    const height = 450;
-    const left = (window.innerWidth - width) / 2;
-    const top = (window.innerHeight - height) / 2;
-
-    const win = window.open(
-      `https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(shareTitle)}`, 
-      '_blank', 
-      `width=${width},height=${height},top=${top},left=${left},toolbar=no,location=no,directories=no,status=no,menubar=no,scrollbars=yes,resizable=yes`
-    );
-
-    if (!win) {
-      alert(lang === 'tr' ? 'Lütfen pop-up engelleyicinizi kapatın.' : 'Ji kerema xwe astengkerê pop-upê bigirin.');
-    }
-  };
-
-  const handleCopyLink = () => {
-    navigator.clipboard.writeText(shareUrl);
-    alert(lang === 'tr' ? 'Bağlantı kopyalandı!' : 'Lînk hat kopîkirin!');
-  };
-
-  const handleWebShare = async () => {
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    
-    if (isMobile && navigator.share) {
-      try {
-        await navigator.share({
-          title: shareTitle,
-          text: displayExcerpt,
-          url: shareUrl,
-        });
-      } catch (error) {
-        console.error('Error sharing:', error);
-      }
-    } else {
-      handleFacebookShare();
-    }
-  };
+  ];
 
   const renderContent = (content: string) => {
     const parts = content.split(/(\[(?:IMAGE|VIDEO):.*?\])/);
@@ -98,12 +75,12 @@ export const NewsDetail = ({ item, lang, onClose }: NewsDetailProps) => {
       if (imgMatch) {
         const url = imgMatch[1];
         return (
-          <div key={index} className="my-8">
+          <div key={index} className="my-8 rounded-2xl overflow-hidden shadow-lg border border-gray-100">
             <img 
               src={url} 
-              alt="Haber görseli" 
-              className="w-full rounded-2xl shadow-lg"
-              referrerPolicy="no-referrer"
+              alt="" 
+              className="w-full object-cover"
+              loading="lazy"
             />
           </div>
         );
@@ -153,92 +130,89 @@ export const NewsDetail = ({ item, lang, onClose }: NewsDetailProps) => {
   };
 
   return (
-    <motion.div 
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-md flex items-center justify-center p-0 md:p-4"
-    >
-      <motion.div 
-        initial={{ y: 100, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        exit={{ y: 100, opacity: 0 }}
-        className="bg-white w-full max-w-4xl h-full md:h-[95vh] md:rounded-3xl overflow-hidden flex flex-col relative"
+    <div className="max-w-4xl mx-auto px-4 py-8 md:py-12">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
       >
-        <button 
-          onClick={onClose}
-          className="absolute top-4 right-4 z-10 p-2 bg-black/20 hover:bg-black/40 text-white rounded-full backdrop-blur-md transition-all"
-        >
-          <X size={24} />
-        </button>
+        <div className="flex items-center gap-4 mb-6">
+          <span className="bg-brand-accent text-white px-3 py-1 rounded-full text-sm font-bold shadow-sm">
+            {category}
+          </span>
+          <div className="flex items-center gap-2 text-gray-500 text-sm">
+            <Calendar size={14} />
+            {item.date}
+          </div>
+        </div>
 
-        <div className="flex-grow overflow-y-auto scroll-smooth">
-          <div className="relative h-[40vh] md:h-[50vh] w-full">
-            <img 
-              src={item.imageUrl} 
-              alt={displayTitle} 
-              className="w-full h-full object-cover"
-              referrerPolicy="no-referrer"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-            <div className="absolute bottom-0 left-0 right-0 p-6 md:p-10 text-white">
-              <span className="inline-block px-3 py-1 bg-brand-accent text-white text-[10px] font-bold uppercase tracking-widest rounded mb-4">
-                {category}
-              </span>
-              <h1 className="text-3xl md:text-5xl font-serif font-bold leading-tight mb-4">
-                {displayTitle}
-              </h1>
-              <div className="flex flex-wrap items-center gap-6 text-xs text-gray-300 font-medium uppercase tracking-widest">
-                <span className="flex items-center gap-2"><User size={14} className="text-brand-accent" /> {item.author}</span>
-                <span className="flex items-center gap-2"><Calendar size={14} className="text-brand-accent" /> {item.date}</span>
-                <span className="flex items-center gap-2"><Clock size={14} className="text-brand-accent" /> {item.readTime}</span>
+        <h1 className="text-3xl md:text-5xl font-bold mb-8 leading-tight text-brand-primary">
+          {title}
+        </h1>
+
+        <div className="aspect-[16/9] w-full rounded-3xl overflow-hidden shadow-2xl mb-12 relative">
+          <img 
+            src={item.imageUrl} 
+            alt={title}
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-12">
+          <div className="lg:col-span-3">
+            <div className="prose prose-lg max-w-none">
+              {renderContent(content)}
+            </div>
+            
+            <div className="mt-12 pt-8 border-t border-gray-100 flex flex-wrap items-center justify-between gap-6">
+              <div className="flex items-center gap-3">
+                <Tag size={18} className="text-brand-accent" />
+                <span className="font-bold text-gray-900">#PatnosPost #Haber</span>
+              </div>
+              
+              <div className="flex items-center gap-4">
+                <span className="text-sm font-bold text-gray-500 uppercase tracking-wider">{lang === 'tr' ? 'PAYLAŞ' : 'PARVE BIKE'}</span>
+                {shareActions.map((action) => (
+                  <button
+                    key={action.name}
+                    onClick={action.handler}
+                    className={`${action.color} text-white p-3 rounded-full hover:scale-110 transition-transform shadow-md`}
+                    aria-label={action.name}
+                  >
+                    {action.icon}
+                  </button>
+                ))}
               </div>
             </div>
           </div>
 
-          <div className="max-w-3xl mx-auto px-6 md:px-10 py-12">
-            <div className="text-xl font-serif italic text-gray-500 border-l-4 border-brand-accent pl-6 mb-10 leading-relaxed">
-              {displayExcerpt}
-            </div>
-
-            <div className="prose prose-lg max-w-none font-serif">
-              {renderContent(displayContent)}
-            </div>
-
-            <div className="mt-16 pt-8 border-t border-gray-100 flex flex-col md:flex-row justify-between items-center gap-6">
-              <div className="flex items-center gap-4">
-                <span className="text-xs font-bold uppercase tracking-widest text-gray-400">{t.share}</span>
-                <div className="flex gap-2">
-                  <button 
-                    onClick={handleFacebookShare}
-                    className="p-3 bg-gray-50 hover:bg-[#1877F2] hover:text-white rounded-full transition-all"
+          <div className="lg:col-span-1">
+            <div className="sticky top-24 p-6 bg-white rounded-2xl shadow-xl border border-gray-50">
+              <h3 className="font-bold mb-4 flex items-center gap-2">
+                <Share2 size={18} className="text-brand-accent" />
+                {lang === 'tr' ? 'Haberi Paylaş' : 'Nûçeyê Parve Bike'}
+              </h3>
+              <p className="text-sm text-gray-500 mb-6">
+                {lang === 'tr' 
+                  ? 'Bu haberi sosyal medya hesaplarınızda paylaşarak daha fazla kişiye ulaşmasını sağlayabilirsiniz.'
+                  : 'Hûn dikarin vê nûçeyê bi parvekirina li ser hesabên xwe yên medyaya civakî bigihînin bêtir kesan.'}
+              </p>
+              <div className="flex flex-col gap-3">
+                {shareActions.map((action) => (
+                  <button
+                    key={action.name}
+                    onClick={action.handler}
+                    className={`flex items-center justify-center gap-3 w-full py-3 rounded-xl text-white font-bold transition-all hover:brightness-110 shadow-sm ${action.color}`}
                   >
-                    <Facebook size={20} />
+                    {action.icon}
+                    {action.name}
                   </button>
-                  <button 
-                    onClick={handleTwitterShare}
-                    className="p-3 bg-gray-50 hover:bg-[#1DA1F2] hover:text-white rounded-full transition-all"
-                  >
-                    <Twitter size={20} />
-                  </button>
-                  <button 
-                    onClick={handleCopyLink}
-                    className="p-3 bg-gray-50 hover:bg-brand-accent hover:text-white rounded-full transition-all"
-                  >
-                    <LinkIcon size={20} />
-                  </button>
-                </div>
+                ))}
               </div>
-              <button 
-                onClick={handleWebShare}
-                className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-gray-500 hover:text-brand-primary transition-colors"
-              >
-                <Share2 size={16} /> {t.shareNews}
-              </button>
             </div>
           </div>
         </div>
       </motion.div>
-    </motion.div>
+    </div>
   );
-};
+}
