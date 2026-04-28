@@ -9,36 +9,43 @@
 
   --color-brand-primary: #1a1a1a;
   --color-brand-accent: #e11d48;
+  --color-brand-dark: #0f172a;
+  --color-brand-light: #f8fafc;
+
+  --shadow-brand: 0 10px 15px -3px rgba(225, 29, 72, 0.1), 0 4px 6px -4px rgba(225, 29, 72, 0.1);
 }
 
 @layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+    scroll-behavior: smooth;
+  }
+  
   body {
-    @apply bg-[#fcfcfc] text-brand-primary font-sans;
+    @apply bg-brand-light text-brand-primary antialiased selection:bg-brand-accent selection:text-white;
   }
 
   h1, h2, h3, h4, h5, h6 {
-    @apply font-serif font-bold;
+    @apply font-sans font-bold tracking-tight;
   }
 }
 
-.news-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 2rem;
+.perspective-1000 {
+  perspective: 1000px;
 }
 
-.line-clamp-2 {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+.backface-hidden {
+  backface-visibility: hidden;
 }
 
-.line-clamp-3 {
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+.rotate-y-180 {
+  transform: rotateY(180deg);
+}
+
+.animate-marquee {
+  display: flex;
+  white-space: nowrap;
+  animation: marquee 30s linear infinite;
 }
 
 @keyframes marquee {
@@ -46,10 +53,14 @@
   100% { transform: translateX(-50%); }
 }
 
-.animate-marquee {
-  animation: marquee 30s linear infinite;
+.markdown-body {
+  @apply text-lg leading-relaxed;
 }
 
-.animate-marquee:hover {
-  animation-play-state: paused;
+.markdown-body p {
+  @apply mb-6;
+}
+
+.glass-effect {
+  @apply bg-white/80 backdrop-blur-md border border-white/20;
 }
