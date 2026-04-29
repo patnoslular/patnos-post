@@ -1,6 +1,4 @@
 import { useState, useEffect } from 'react';
-import { auth } from './firebase';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { useNews } from './hooks/useNews';
 import { useSettings } from './hooks/useSettings';
 import { NewsCard } from './components/NewsCard';
@@ -9,9 +7,8 @@ import { NewsSlider } from './components/NewsSlider';
 import { AdminPanel } from './components/AdminPanel';
 import { LoginModal } from './components/LoginModal';
 import { NewsDetail } from './components/NewsDetail';
-import { CATEGORIES, UI_STRINGS, Language, NewsItem, MENU_LINKS } from './constants';
+import { CATEGORIES, UI_STRINGS, Language, NewsItem, MENU_LINKS, NEWS_DATA } from './constants';
 import { isSupabaseConfigured } from './supabase';
-import { SupabaseSetup } from './components/SupabaseSetup';
 import { Menu, Search, Globe, TrendingUp, ChevronRight, Mail, Facebook, Twitter, Instagram, Settings, LogOut, Languages, Upload, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -20,7 +17,18 @@ import { Routes, Route, useNavigate, useParams, useLocation } from 'react-router
 const NewsDetailWrapper = ({ news, lang }: { news: NewsItem[], lang: Language }) => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const item = news.find(n => n.id === id);
+  
+  // news dizisi yoksa veya boşsa güvenli bir şekilde null döndür
+  if (!news || !Array.isArray(news)) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-accent"></div>
+      </div>
+    );
+  }
+
+  const newsArray = Array.isArray(news) ? news : [];
+  const item = newsArray.find(n => n && n.id && String(n.id) === String(id));
 
   if (!item) return null;
 
@@ -42,11 +50,9 @@ export default function App() {
   const [showAdmin, setShowAdmin] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [lang, setLang] = useState<Language>('ku');
-  const [isConfigured, setIsConfigured] = useState(() => {
-    const configured = isSupabaseConfigured();
-    return configured;
-  });
+  const [isConfigured] = useState(true);
   const { news, loading } = useNews();
+  const safeNews = news && news.length > 0 ? news : NEWS_DATA;
   const { settings, updateSettings } = useSettings();
   const navigate = useNavigate();
   const location = useLocation();
@@ -71,7 +77,7 @@ export default function App() {
   }, [location]);
 
   if (!isConfigured) {
-    return <SupabaseSetup onComplete={() => setIsConfigured(true)} />;
+    return null; // Should not happen with hardcoded true
   }
 
   const changeLang = (newLang: Language) => {
@@ -105,12 +111,12 @@ export default function App() {
   };
 
   const filteredNews = activeCategory === 'all' 
-    ? news 
-    : news.filter(item => item.category === activeCategory);
+    ? safeNews 
+    : safeNews.filter(item => item.category === activeCategory);
 
-  const sliderNews = news.slice(0, 10);
-  const sideNews = news.slice(0, 4);
-  const gridNews = news.slice(4);
+  const sliderNews = safeNews.slice(0, 10);
+  const sideNews = safeNews.slice(0, 4);
+  const gridNews = safeNews.slice(4);
 
   if (loading) {
     return (
@@ -125,7 +131,7 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-      <div className="min-h-screen flex flex-col bg-white">
+      <div className="min-h-screen flex flex-col bg-[#f8fbff]">
         {/* Wix Style Menu - Desktop & Mobile */}
         <div className="bg-[#E2C2A4] py-2 md:py-4 px-4 border-b border-black relative z-50">
           <div className="max-w-7xl mx-auto flex justify-between md:justify-center items-center">
@@ -216,7 +222,7 @@ export default function App() {
             <div className="absolute top-4 right-4 z-10 flex gap-2">
               <button 
                 onClick={() => changeLang('ku')}
-                className={`group relative px-4 py-2 rounded-full text-[10px] font-black tracking-tighter transition-all duration-300 transform hover:scale-110 shadow-lg ${
+                className={`group relative px-4 py-2 rounded-full text-[10px] font-black tracking-widest transition-all duration-300 transform hover:scale-110 shadow-lg font-anton ${
                   lang === 'ku' 
                     ? 'bg-gradient-to-r from-brand-accent to-orange-600 text-white ring-4 ring-orange-200' 
                     : 'bg-white text-gray-800 hover:bg-gray-100'
@@ -227,7 +233,7 @@ export default function App() {
               </button>
               <button 
                 onClick={() => changeLang('tr')}
-                className={`group relative px-4 py-2 rounded-full text-[10px] font-black tracking-tighter transition-all duration-300 transform hover:scale-110 shadow-lg ${
+                className={`group relative px-4 py-2 rounded-full text-[10px] font-black tracking-widest transition-all duration-300 transform hover:scale-110 shadow-lg font-anton ${
                   lang === 'tr' 
                     ? 'bg-gradient-to-r from-brand-accent to-orange-600 text-white ring-4 ring-orange-200' 
                     : 'bg-white text-gray-800 hover:bg-gray-100'
@@ -265,14 +271,18 @@ export default function App() {
                 {t.breakingNews}
               </span>
               <div className="flex gap-12 animate-marquee">
-                {news.slice(0, 5).map(item => (
+                {safeNews.slice(0, 5)
+                  .filter(item => item && item.id && item.title)
+                  .map(item => (
                   <button key={item.id} className="text-[11px] font-medium cursor-pointer hover:text-brand-accent transition-colors" onClick={() => navigate(`/news/${item.id}?lang=${lang}`)}>
-                    {item.title ? (item.title[lang] || item.title[lang === 'tr' ? 'ku' : 'tr']) : ''}
+                    {item.title[lang] || item.title[lang === 'tr' ? 'ku' : 'tr']}
                   </button>
                 ))}
-                {news.slice(0, 5).map(item => (
+                {safeNews.slice(0, 5)
+                  .filter(item => item && item.id && item.title)
+                  .map(item => (
                   <button key={`${item.id}-dup`} className="text-[11px] font-medium cursor-pointer hover:text-brand-accent transition-colors" onClick={() => navigate(`/news/${item.id}?lang=${lang}`)}>
-                    {item.title ? (item.title[lang] || item.title[lang === 'tr' ? 'ku' : 'tr']) : ''}
+                    {item.title[lang] || item.title[lang === 'tr' ? 'ku' : 'tr']}
                   </button>
                 ))}
               </div>
@@ -331,7 +341,7 @@ export default function App() {
                           <h2 className="text-xl font-serif font-bold text-brand-primary">{t.popularNews}</h2>
                         </div>
                         <div className="space-y-6">
-                          {news.slice(0, 5).map((item, idx) => (
+                          {safeNews.slice(0, 5).map((item, idx) => (
                             <PopularNewsItem 
                               key={item.id} 
                               item={item} 
@@ -346,7 +356,7 @@ export default function App() {
                     {/* Main News Grid */}
                     <section className="mb-16">
                       <div className="flex items-center justify-between mb-8 border-b border-gray-200 pb-4">
-                        <h2 className="text-3xl font-serif font-bold">{t.latestNews}</h2>
+                        <h2 className="text-3xl font-anton font-bold tracking-wider">{t.latestNews}</h2>
                         <button 
                           onClick={() => handleCategoryClick('all')}
                           className="flex items-center gap-1 text-xs font-bold uppercase tracking-widest text-gray-500 hover:text-brand-accent transition-colors"
@@ -363,8 +373,8 @@ export default function App() {
                   </>
                 ) : (
                   <section className="mb-16">
-                    <h2 className="text-3xl font-serif font-bold mb-8 border-b border-gray-200 pb-4">
-                      {activeCategory === 'all' ? t.latestNews : CATEGORIES.find(c => c.id === activeCategory)?.[lang]}
+                    <h2 className="text-3xl font-anton font-bold mb-8 border-b border-gray-200 pb-4 tracking-wider">
+                      {activeCategory === 'all' ? t.latestNews : (Array.isArray(CATEGORIES) ? (CATEGORIES.find(c => c && c.id === activeCategory)?.[lang] || activeCategory) : activeCategory)}
                     </h2>
                     <div className="news-grid">
                       {filteredNews.map(item => (
@@ -375,7 +385,7 @@ export default function App() {
                 )}
               </>
             } />
-            <Route path="/news/:id" element={<NewsDetailWrapper news={news} lang={lang} />} />
+            <Route path="/news/:id" element={<NewsDetailWrapper news={safeNews} lang={lang} />} />
           </Routes>
 
           {/* Newsletter */}
