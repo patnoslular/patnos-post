@@ -35,6 +35,8 @@ const injectMetaTags = async (html: string, req: express.Request) => {
   try {
     const path = req.path;
     let lang = (req.query.lang as string) || 'tr';
+    if (!['tr', 'ku'].includes(lang)) lang = 'tr';
+    
     const parts = path.split('/').filter(Boolean);
     let newsId = (parts[0] === 'news' && parts[1]) ? parts[1].split(/[?#]/)[0] : null;
     
@@ -45,25 +47,36 @@ const injectMetaTags = async (html: string, req: express.Request) => {
     }
 
     if (newsId) {
-      const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || 'https://luphjhodlrnnnnbmwzad.supabase.co';
-      const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+      const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+      const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
 
       if (supabaseKey && supabaseUrl) {
         const supabase = createClient(supabaseUrl, supabaseKey);
-        const { data: newsItem } = await supabase.from('news').select('*').eq('id', newsId).single();
+        const { data: newsItem } = await supabase
+          .from('news')
+          .select('*')
+          .eq('id', newsId)
+          .single();
 
         if (newsItem) {
-          const newsTitle = newsItem.title?.[lang] || newsItem.title?.tr || 'Haber';
-          const newsExcerpt = newsItem.excerpt?.[lang] || newsItem.excerpt?.tr || (newsItem.content?.[lang] || '').substring(0, 160);
+          const newsTitle = newsItem.title?.[lang] || newsItem.title?.tr || newsItem.title || 'Haber';
+          const newsExcerpt = newsItem.excerpt?.[lang] || newsItem.excerpt?.tr || (newsItem.content?.[lang] || newsItem.content?.tr || '').substring(0, 160) || description;
+          
           title = `${newsTitle} | The Patnos Post`;
           description = newsExcerpt;
-          if (newsItem.imageUrl) image = newsItem.imageUrl;
+          
+          if (newsItem.imageUrl) {
+            image = newsItem.imageUrl.startsWith('http') ? newsItem.imageUrl : `${appUrl}${newsItem.imageUrl.startsWith('/') ? '' : '/'}${newsItem.imageUrl}`;
+          }
         }
       }
     }
-  } catch (error) { console.error('MetaTags error:', error); }
+  } catch (error) {
+    console.error('[MetaTags] Error:', error);
+  }
 
-  const escape = (str: string) => str?.replace(/"/g, '&quot;') || "";
+  const escape = (str: string) => str?.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;') || "";
+
   return html
     .replace(/__OG_TITLE__/g, escape(title))
     .replace(/__OG_DESCRIPTION__/g, escape(description))
@@ -72,18 +85,50 @@ const injectMetaTags = async (html: string, req: express.Request) => {
     .replace(/__OG_LOCALE__/g, locale);
 };
 
-app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
+app.get('/api/health', (req, res) => {
+  res.json({ success: true, status: 'ok' });
+});
 
 app.post('/api/login', (req, res) => {
   const { password } = req.body;
   const adminPassword = process.env.ADMIN_PASSWORD || 'Mihriban04';
-  if (password === adminPassword) return res.json({ success: true });
-  return res.status(401).json({ success: false });
+  if (password === adminPassword) {
+    return res.json({ success: true });
+  }
+  return res.status(401).json({ success: false, error: 'Invalid password' });
 });
 
-app.post('/api/upload', upload.single('file'), (req, res) => {
+// RESİM YÜKLEME RADOSU
+app.post('/api/upload', upload.single('file'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file' });
-  res.json({ success: true, url: `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}` });
+
+  try {
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
+
+    if (supabaseUrl && supabaseKey) {
+      const supabaseAdmin = createClient(supabaseUrl, supabaseKey);
+      const fileExt = req.file.originalname.split('.').pop();
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${fileExt}`;
+      const filePath = `uploads/${fileName}`;
+
+      const { data, error } = await supabaseAdmin.storage
+        .from('news-images')
+        .upload(filePath, req.file.buffer, { contentType: req.file.mimetype });
+
+      if (!error) {
+        const { data: { publicUrl } } = supabaseAdmin.storage.from('news-images').getPublicUrl(filePath);
+        return res.json({ success: true, url: publicUrl });
+      }
+    }
+    // Fallback if supabase fails
+    res.json({ 
+      success: true, 
+      url: `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}` 
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
 });
 
 async function startServer() {
@@ -92,6 +137,7 @@ async function startServer() {
     const vite = await createViteServer({ server: { middlewareMode: true }, appType: 'spa' });
     app.use(vite.middlewares);
     app.get('*', async (req, res, next) => {
+      if (req.path.startsWith('/api/') || req.path.includes('.')) return next();
       try {
         let template = fs.readFileSync(path.resolve(rootDir, 'index.html'), 'utf-8');
         template = await vite.transformIndexHtml(req.originalUrl, template);
@@ -100,9 +146,9 @@ async function startServer() {
       } catch (e) { next(e); }
     });
   } else {
-    app.use('/assets', express.static(path.join(distPath, 'assets')));
     app.use(express.static(distPath, { index: false }));
     app.get('*', async (req, res, next) => {
+      if (req.path.startsWith('/api/') || req.path.includes('.')) return next();
       try {
         const template = fs.readFileSync(path.resolve(distPath, 'index.html'), 'utf-8');
         const html = await injectMetaTags(template, req);
@@ -110,7 +156,7 @@ async function startServer() {
       } catch (e) { next(e); }
     });
   }
-  app.listen(3000, '0.0.0.0', () => console.log('Server running on port 3000'));
+  app.listen(3000, '0.0.0.0');
 }
 
 startServer();
