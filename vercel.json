@@ -5,29 +5,10 @@
       "includeFiles": "dist/**"
     }
   },
-  "headers": [
-    {
-      "source": "/(.*)",
-      "headers": [
-        {
-          "key": "Access-Control-Allow-Origin",
-          "value": "*"
-        }
-      ]
-    }
-  ],
   "rewrites": [
-    {
-      "source": "/robots.txt",
-      "destination": "/api/index.ts"
-    },
     {
       "source": "/api/(.*)",
       "destination": "/api/index.ts"
-    },
-    {
-      "source": "/assets/(.*)",
-      "destination": "/dist/assets/$1"
     },
     {
       "source": "/news/(.*)",
