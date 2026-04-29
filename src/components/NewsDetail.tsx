@@ -1,21 +1,26 @@
-import { useEffect } from 'react';
-import { useParams, useSearchParams } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { Calendar, Tag, Share2, Facebook, Twitter, MessageCircle, ArrowLeft } from 'lucide-react';
-import { CATEGORIES, Language } from '../constants';
-import { useNews } from '../hooks/useNews';
+import { 
+  ArrowLeft, Calendar, User, Clock, Share2, 
+  MessageCircle, Bookmark, Copy, Check, Facebook, Twitter
+} from 'lucide-react';
+import { NewsItem, Language, CATEGORIES, UI_STRINGS } from '../constants';
 
 interface NewsDetailProps {
+  news: NewsItem[];
   lang: Language;
 }
 
-export function NewsDetail({ lang: propLang }: NewsDetailProps) {
+export const NewsDetail: React.FC<NewsDetailProps> = ({ news, lang: initialLang }) => {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
-  const lang = (searchParams.get('lang') as Language) || propLang;
+  const navigate = useNavigate();
+  const [copied, setCopied] = useState(false);
   
-  const { news } = useNews();
+  const lang = (searchParams.get('lang') as Language) || initialLang;
   const item = news.find(n => n.id === id);
+  const t = UI_STRINGS[lang];
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -23,196 +28,141 @@ export function NewsDetail({ lang: propLang }: NewsDetailProps) {
 
   if (!item) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] px-4">
-        <h2 className="text-2xl font-bold mb-4">Haber bulunamadı / Nûçe nehat dîtin</h2>
+      <div className="flex flex-col items-center justify-center py-20 bg-[#f8fbff]">
+        <h2 className="text-2xl font-anton text-gray-800 mb-4 uppercase">HABER BULUNAMADI</h2>
         <button 
-          onClick={() => window.history.back()}
-          className="flex items-center gap-2 text-brand-accent font-bold"
+          onClick={() => navigate(`/?lang=${lang}`)}
+          className="flex items-center gap-2 text-brand-accent font-bold uppercase tracking-widest hover:underline"
         >
-          <ArrowLeft size={20} /> Geri Dön / Vegere
+          <ArrowLeft size={18} /> {t.backHome}
         </button>
       </div>
     );
   }
 
-  const title = item.title[lang] || item.title[lang === 'tr' ? 'ku' : 'tr'];
-  const content = item.content[lang] || item.content[lang === 'tr' ? 'ku' : 'tr'];
-  const category = CATEGORIES.find(c => c.id === item.category)?.[lang] || item.category;
+  const displayTitle = item.title[lang] || item.title[lang === 'tr' ? 'ku' : 'tr'];
+  const displayContent = item.content[lang] || item.content[lang === 'tr' ? 'ku' : 'tr'];
+  const category = CATEGORIES.find(c => c.id === item.category)?.label[lang] || item.category;
 
-  const getShareUrl = () => {
-    return `${window.location.origin}/news/${item.id}?lang=${lang}`;
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(window.location.href);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
-  const shareUrl = getShareUrl();
+  const shareOnFacebook = () => {
+    window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(window.location.href)}`, '_blank');
+  };
 
-  const shareActions = [
-    { 
-      name: 'Facebook', 
-      icon: <Facebook size={20} />, 
-      color: 'bg-[#1877F2]',
-      handler: () => window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`, '_blank')
-    },
-    { 
-      name: 'X', 
-      icon: <Twitter size={20} />, 
-      color: 'bg-black',
-      handler: () => window.open(`https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(title)}`, '_blank')
-    },
-    { 
-      name: 'WhatsApp', 
-      icon: <MessageCircle size={20} />, 
-      color: 'bg-[#25D366]',
-      handler: () => window.open(`https://wa.me/?text=${encodeURIComponent(title + ' ' + shareUrl)}`, '_blank')
-    }
-  ];
-
-  const renderContent = (content: string) => {
-    const parts = content.split(/(\[(?:IMAGE|VIDEO):.*?\])/);
-    return parts.map((part, index) => {
-      const imgMatch = part.match(/\[IMAGE:(.*?)\]/);
-      const videoMatch = part.match(/\[VIDEO:(.*?)\]/);
-
-      if (imgMatch) {
-        const url = imgMatch[1];
-        return (
-          <div key={index} className="my-8 rounded-2xl overflow-hidden shadow-lg border border-gray-100">
-            <img 
-              src={url} 
-              alt="" 
-              className="w-full object-cover"
-              loading="lazy"
-            />
-          </div>
-        );
-      }
-
-      if (videoMatch) {
-        const url = videoMatch[1];
-        const isYouTube = url.includes('youtube.com') || url.includes('youtu.be');
-        
-        if (isYouTube) {
-          let embedUrl = url;
-          if (url.includes('watch?v=')) {
-            embedUrl = url.replace('watch?v=', 'embed/');
-          } else if (url.includes('youtu.be/')) {
-            embedUrl = url.replace('youtu.be/', 'youtube.com/embed/');
-          }
-          
-          return (
-            <div key={index} className="my-8 aspect-video w-full rounded-2xl overflow-hidden shadow-lg">
-              <iframe
-                src={embedUrl}
-                className="w-full h-full"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-              />
-            </div>
-          );
-        }
-
-        return (
-          <div key={index} className="my-8 w-full rounded-2xl overflow-hidden shadow-lg">
-            <video 
-              src={url} 
-              controls 
-              className="w-full"
-            />
-          </div>
-        );
-      }
-
-      return (
-        <p key={index} className="mb-6 whitespace-pre-wrap leading-relaxed text-gray-700">
-          {part}
-        </p>
-      );
-    });
+  const shareOnTwitter = () => {
+    window.open(`https://twitter.com/intent/tweet?url=${encodeURIComponent(window.location.href)}&text=${encodeURIComponent(displayTitle)}`, '_blank');
   };
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8 md:py-12">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
+    <div className="bg-[#f8fbff] min-h-screen">
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="max-w-screen-xl mx-auto px-4 py-8 md:py-16"
       >
-        <div className="flex items-center gap-4 mb-6">
-          <span className="bg-brand-accent text-white px-3 py-1 rounded-full text-sm font-bold shadow-sm">
-            {category}
-          </span>
-          <div className="flex items-center gap-2 text-gray-500 text-sm">
-            <Calendar size={14} />
-            {item.date}
-          </div>
-        </div>
+        <button 
+          onClick={() => navigate(`/?lang=${lang}`)}
+          className="flex items-center gap-2 text-gray-500 hover:text-brand-accent mb-8 transition-colors font-bold uppercase text-xs tracking-widest"
+        >
+          <ArrowLeft size={16} /> {t.backHome}
+        </button>
 
-        <h1 className="text-3xl md:text-5xl font-bold mb-8 leading-tight text-brand-primary">
-          {title}
-        </h1>
-
-        <div className="aspect-[16/9] w-full rounded-3xl overflow-hidden shadow-2xl mb-12 relative">
-          <img 
-            src={item.imageUrl} 
-            alt={title}
-            className="w-full h-full object-cover"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-12">
-          <div className="lg:col-span-3">
-            <div className="prose prose-lg max-w-none">
-              {renderContent(content)}
-            </div>
-            
-            <div className="mt-12 pt-8 border-t border-gray-100 flex flex-wrap items-center justify-between gap-6">
-              <div className="flex items-center gap-3">
-                <Tag size={18} className="text-brand-accent" />
-                <span className="font-bold text-gray-900">#PatnosPost #Haber</span>
+        <div className="grid lg:grid-cols-12 gap-12">
+          {/* Main Content */}
+          <div className="lg:col-span-8">
+            <header className="mb-10">
+              <span className="inline-block px-3 py-1 bg-brand-accent text-white text-[10px] font-bold uppercase tracking-widest rounded mb-4">
+                {category}
+              </span>
+              <h1 className="text-2xl md:text-5xl font-anton leading-[1.2] mb-6 uppercase tracking-normal">
+                {displayTitle}
+              </h1>
+              <div className="flex flex-wrap items-center gap-6 text-xs text-gray-400 font-medium uppercase tracking-widest bg-gray-50 p-4 rounded-xl">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 bg-white rounded-lg shadow-sm">
+                    <User size={14} className="text-brand-accent" />
+                  </div>
+                  <span>{item.author}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="p-2 bg-white rounded-lg shadow-sm">
+                    <Calendar size={14} className="text-brand-accent" />
+                  </div>
+                  <span>{item.date}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="p-2 bg-white rounded-lg shadow-sm">
+                    <Clock size={14} className="text-brand-accent" />
+                  </div>
+                  <span>{item.readTime}</span>
+                </div>
               </div>
-              
-              <div className="flex items-center gap-4">
-                <span className="text-sm font-bold text-gray-500 uppercase tracking-wider">{lang === 'tr' ? 'PAYLAŞ' : 'PARVE BIKE'}</span>
-                {shareActions.map((action) => (
-                  <button
-                    key={action.name}
-                    onClick={action.handler}
-                    className={`${action.color} text-white p-3 rounded-full hover:scale-110 transition-transform shadow-md`}
-                    aria-label={action.name}
-                  >
-                    {action.icon}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
+            </header>
 
-          <div className="lg:col-span-1">
-            <div className="sticky top-24 p-6 bg-white rounded-2xl shadow-xl border border-gray-50">
-              <h3 className="font-bold mb-4 flex items-center gap-2">
-                <Share2 size={18} className="text-brand-accent" />
-                {lang === 'tr' ? 'Haberi Paylaş' : 'Nûçeyê Parve Bike'}
-              </h3>
-              <p className="text-sm text-gray-500 mb-6">
-                {lang === 'tr' 
-                  ? 'Bu haberi sosyal medya hesaplarınızda paylaşarak daha fazla kişiye ulaşmasını sağlayabilirsiniz.'
-                  : 'Hûn dikarin vê nûçeyê bi parvekirina li ser hesabên xwe yên medyaya civakî bigihînin bêtir kesan.'}
+            <figure className="relative rounded-2xl overflow-hidden mb-10 shadow-2xl">
+              <img 
+                src={item.imageUrl} 
+                alt={displayTitle}
+                className="w-full aspect-[16/9] object-cover"
+                referrerPolicy="no-referrer"
+              />
+            </figure>
+
+            <div className="flex gap-4 mb-8">
+              <button onClick={shareOnFacebook} className="p-3 bg-[#1877F2] text-white rounded-xl shadow-lg hover:bg-opacity-90 transition-all flex items-center justify-center">
+                <Facebook size={20} />
+              </button>
+              <button onClick={shareOnTwitter} className="p-3 bg-[#1DA1F2] text-white rounded-xl shadow-lg hover:bg-opacity-90 transition-all flex items-center justify-center">
+                <Twitter size={20} />
+              </button>
+              <button className="p-3 bg-[#25D366] text-white rounded-xl shadow-lg hover:bg-opacity-90 transition-all flex items-center justify-center">
+                <MessageCircle size={20} />
+              </button>
+              <button onClick={handleCopyLink} className="p-3 bg-white text-gray-700 rounded-xl shadow-lg hover:bg-gray-50 transition-all border border-gray-100 flex items-center justify-center gap-2">
+                {copied ? <Check size={20} className="text-green-500" /> : <Copy size={20} />}
+              </button>
+            </div>
+
+            <div className="prose prose-lg prose-slate max-w-none">
+              <p className="text-gray-700 leading-[1.8] text-lg font-serif whitespace-pre-wrap first-letter:text-5xl first-letter:font-anton first-letter:float-left first-letter:mr-3 first-letter:text-brand-accent">
+                {displayContent}
               </p>
-              <div className="flex flex-col gap-3">
-                {shareActions.map((action) => (
-                  <button
-                    key={action.name}
-                    onClick={action.handler}
-                    className={`flex items-center justify-center gap-3 w-full py-3 rounded-xl text-white font-bold transition-all hover:brightness-110 shadow-sm ${action.color}`}
-                  >
-                    {action.icon}
-                    {action.name}
-                  </button>
+            </div>
+          </div>
+
+          {/* Sidebar */}
+          <aside className="lg:col-span-4 lg:sticky lg:top-24 h-fit">
+            <div className="bg-white p-8 rounded-2xl shadow-xl border border-gray-100">
+              <h3 className="text-xl font-anton mb-6 border-b border-gray-100 pb-4 uppercase tracking-widest">{t.popularNews}</h3>
+              <div className="space-y-6">
+                {news.slice(0, 5).filter(n => n.id !== id).map(item => (
+                  <div key={item.id} className="group cursor-pointer" onClick={() => navigate(`/news/${item.id}?lang=${lang}`)}>
+                    <div className="flex gap-4">
+                      <div className="w-20 h-20 rounded-xl overflow-hidden flex-shrink-0">
+                        <img src={item.imageUrl} alt={item.title[lang]} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                      </div>
+                      <div>
+                        <span className="text-[10px] font-black uppercase text-brand-accent tracking-widest mb-1 block">
+                          {CATEGORIES.find(c => c.id === item.category)?.label[lang]}
+                        </span>
+                        <h4 className="text-sm font-anton leading-snug group-hover:text-brand-accent transition-colors line-clamp-2 uppercase">
+                          {item.title[lang] || item.title[lang === 'tr' ? 'ku' : 'tr']}
+                        </h4>
+                        <span className="text-[10px] text-gray-400 font-bold uppercase mt-1 block">{item.date}</span>
+                      </div>
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>
-          </div>
+          </aside>
         </div>
       </motion.div>
     </div>
   );
-}
+};
