@@ -18,103 +18,100 @@ app.use(express.urlencoded({ extended: true }));
 const storage = multer.memoryStorage();
 const upload = multer({ 
   storage: storage,
-  limits: { fileSize: 10 * 1024 * 1024 }
+  limits: { fileSize: 10 * 1024 * 1024 } 
 });
 
-// Dinamik Meta Tag Enjeksiyonu
 const injectMetaTags = async (html: string, req: express.Request) => {
+  let title = "The Patnos Post | Gerçeğin Peşinde, Geleceğin İzinde";
+  let description = "Patnos ve çevresinden en güncel haberler, yaşam ve kültür içerikleri.";
+  let image = "https://static.wixstatic.com/media/7e2174_e230755889444a418254ba8ec11e24f7~mv2.png";
+  let locale = 'tr_TR';
+  
+  const host = req.headers.host || 'patnos-post.vercel.app';
+  const protocol = req.headers['x-forwarded-proto'] || 'https';
+  const appUrl = process.env.APP_URL || `${protocol}://${host}`;
+  const fullUrl = `${appUrl}${req.originalUrl}`;
+
   try {
-    const urlPath = req.path;
+    const path = req.path;
     let lang = (req.query.lang as string) || 'tr';
-    if (!['tr', 'ku'].includes(lang)) lang = 'tr';
-    
-    const parts = urlPath.split('/').filter(Boolean);
+    const parts = path.split('/').filter(Boolean);
     let newsId = (parts[0] === 'news' && parts[1]) ? parts[1].split(/[?#]/)[0] : null;
     
-    // Varsayılan değerler
-    let title = lang === 'ku' ? "The Patnos Post | Di Peşiya Rastiyê De" : "The Patnos Post | Gerçeğin Peşinde";
-    let description = lang === 'ku' ? "Haberên herî dawî ji Patnosê." : "Patnos'tan en güncel haberler.";
-    let image = "https://patnos-post.vercel.app/og-image.jpg"; // Sitenizin genel bir görseli
-    let locale = lang === 'ku' ? 'ku_TR' : 'tr_TR';
-    
-    const host = req.headers.host || 'patnos-post.vercel.app';
-    const appUrl = `https://${host}`;
-    const fullUrl = `${appUrl}${req.originalUrl}`;
+    if (lang === 'ku') {
+      title = "The Patnos Post | Li pey rastiyê, li ser şopa pêşerojê";
+      description = "Nûçeyên herî dawî, naveroka jiyan û çandê ji Patnos û derdora wê.";
+      locale = 'ku_TR';
+    }
 
-    // Eğer bir haber detay sayfasıysa Supabase'den gerçek veriyi çek
     if (newsId) {
-      const supabaseUrl = process.env.VITE_SUPABASE_URL || 'https://luphjhodlrnnnnbmwzad.supabase.co';
+      const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || 'https://luphjhodlrnnnnbmwzad.supabase.co';
       const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
 
       if (supabaseKey && supabaseUrl) {
         const supabase = createClient(supabaseUrl, supabaseKey);
-        const { data: newsItem } = await supabase
-          .from('news')
-          .select('*')
-          .eq('id', newsId)
-          .single();
+        const { data: newsItem } = await supabase.from('news').select('*').eq('id', newsId).single();
 
         if (newsItem) {
-          const newsTitle = newsItem.title?.[lang] || newsItem.title?.tr || "Haber";
-          const newsExcerpt = newsItem.excerpt?.[lang] || newsItem.excerpt?.tr || (newsItem.content?.[lang] || "").substring(0, 160);
-          
-          title = `${newsTitle}`;
+          const newsTitle = newsItem.title?.[lang] || newsItem.title?.tr || 'Haber';
+          const newsExcerpt = newsItem.excerpt?.[lang] || newsItem.excerpt?.tr || (newsItem.content?.[lang] || '').substring(0, 160);
+          title = `${newsTitle} | The Patnos Post`;
           description = newsExcerpt;
           if (newsItem.imageUrl) image = newsItem.imageUrl;
         }
       }
     }
+  } catch (error) { console.error('MetaTags error:', error); }
 
-    const escapeHtml = (str: string) => str.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-
-    return html
-      .replace(/__OG_TITLE__/g, escapeHtml(title))
-      .replace(/__OG_DESCRIPTION__/g, escapeHtml(description))
-      .replace(/__OG_IMAGE__/g, escapeHtml(image))
-      .replace(/__OG_URL__/g, escapeHtml(fullUrl))
-      .replace(/__OG_LOCALE__/g, locale);
-  } catch (error) {
-    console.error('Meta hatası:', error);
-    return html;
-  }
+  const escape = (str: string) => str?.replace(/"/g, '&quot;') || "";
+  return html
+    .replace(/__OG_TITLE__/g, escape(title))
+    .replace(/__OG_DESCRIPTION__/g, escape(description))
+    .replace(/__OG_IMAGE__/g, escape(image))
+    .replace(/__OG_URL__/g, escape(fullUrl))
+    .replace(/__OG_LOCALE__/g, locale);
 };
 
-// API Rotaları
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 
+app.post('/api/login', (req, res) => {
+  const { password } = req.body;
+  const adminPassword = process.env.ADMIN_PASSWORD || 'Mihriban04';
+  if (password === adminPassword) return res.json({ success: true });
+  return res.status(401).json({ success: false });
+});
+
 app.post('/api/upload', upload.single('file'), (req, res) => {
-  if (!req.file) return res.status(400).json({ error: 'Dosya yok' });
-  res.json({ url: `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}` });
+  if (!req.file) return res.status(400).json({ error: 'No file' });
+  res.json({ success: true, url: `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}` });
 });
 
-// Sayfa İsteklerini Karşıla
-app.get('*', async (req, res, next) => {
-  // Statik dosyaları ve API'yi atla
-  if (req.path.includes('.') || req.path.startsWith('/api/')) return next();
-  
-  try {
-    const indexPath = isProd 
-      ? path.resolve(distPath, 'index.html') 
-      : path.resolve(rootDir, 'index.html');
-    
-    if (!fs.existsSync(indexPath)) return next();
-    
-    let template = fs.readFileSync(indexPath, 'utf-8');
-    const html = await injectMetaTags(template, req);
-    res.status(200).set({ 'Content-Type': 'text/html' }).send(html);
-  } catch (e) {
-    next(e);
+async function startServer() {
+  if (!isProd) {
+    const { createServer: createViteServer } = await import('vite');
+    const vite = await createViteServer({ server: { middlewareMode: true }, appType: 'spa' });
+    app.use(vite.middlewares);
+    app.get('*', async (req, res, next) => {
+      try {
+        let template = fs.readFileSync(path.resolve(rootDir, 'index.html'), 'utf-8');
+        template = await vite.transformIndexHtml(req.originalUrl, template);
+        const html = await injectMetaTags(template, req);
+        res.status(200).set({ 'Content-Type': 'text/html' }).end(html);
+      } catch (e) { next(e); }
+    });
+  } else {
+    app.use('/assets', express.static(path.join(distPath, 'assets')));
+    app.use(express.static(distPath, { index: false }));
+    app.get('*', async (req, res, next) => {
+      try {
+        const template = fs.readFileSync(path.resolve(distPath, 'index.html'), 'utf-8');
+        const html = await injectMetaTags(template, req);
+        res.status(200).set({ 'Content-Type': 'text/html' }).end(html);
+      } catch (e) { next(e); }
+    });
   }
-});
-
-// Statik Dosyalar (Üretim modunda)
-if (isProd) {
-  app.use(express.static(distPath));
+  app.listen(3000, '0.0.0.0', () => console.log('Server running on port 3000'));
 }
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Server çalışıyor: ${PORT}`);
-});
-
+startServer();
 export default app;
